@@ -59,9 +59,7 @@ export default function Portal() {
       }
     } catch (e) {
       const err = e.response?.data?.error || e.message;
-      if (err === 'check_in_encerrado') {
-        setPinError('Check-in encerrado. Procure a administração.');
-      } else if (err === 'check_in_duplicado') {
+      if (err === 'check_in_duplicado') {
         setPinError('Você já fez check-in hoje.');
       } else {
         setPinError(err);

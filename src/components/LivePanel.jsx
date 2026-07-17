@@ -18,21 +18,16 @@ export default function LivePanel({ motoboys }) {
   }, [motoboys]);
 
   const checkedInIds = new Set(checkIns.map((c) => c.motoboy_id));
-  const now = new Date();
-  const timeMinutes = now.getHours() * 60 + now.getMinutes();
-  const windowOpen = timeMinutes >= 17 * 60 && timeMinutes <= 18 * 60 + 30;
 
   const groups = {
     working: motoboys.filter((m) => checkedInIds.has(m.id)),
-    waiting: motoboys.filter((m) => m.status === 'ativo' && !checkedInIds.has(m.id) && windowOpen),
-    absent: motoboys.filter((m) => m.status === 'ativo' && !checkedInIds.has(m.id) && !windowOpen),
+    waiting: motoboys.filter((m) => m.status === 'ativo' && !checkedInIds.has(m.id)),
     inactive: motoboys.filter((m) => m.status === 'inativo'),
   };
 
   const config = [
     { key: 'working', label: 'Trabalhando', dot: 'bg-emerald-500', ring: 'border-emerald-200', items: groups.working },
-    { key: 'waiting', label: 'Ainda não chegou', dot: 'bg-amber-400', ring: 'border-amber-200', items: groups.waiting },
-    { key: 'absent', label: 'Ausente', dot: 'bg-red-500', ring: 'border-red-200', items: groups.absent },
+    { key: 'waiting', label: 'Aguardando check-in', dot: 'bg-amber-400', ring: 'border-amber-200', items: groups.waiting },
     { key: 'inactive', label: 'Inativo', dot: 'bg-slate-400', ring: 'border-slate-200', items: groups.inactive },
   ];
 

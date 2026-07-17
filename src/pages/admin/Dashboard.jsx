@@ -6,7 +6,7 @@ import StatCard from '@/components/StatCard';
 import LivePanel from '@/components/LivePanel';
 import EmergencyCheckin from '@/components/EmergencyCheckin';
 import { formatBRL, getDiaria, todayISO } from '@/lib/donbaron';
-import { Users, UserCheck, UserX, Clock, Wallet, TrendingUp, Banknote, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Users, UserCheck, UserX, Wallet, TrendingUp, Banknote, AlertTriangle, ShieldAlert } from 'lucide-react';
 
 export default function Dashboard() {
   const [motoboys, setMotoboys] = useState([]);
@@ -49,8 +49,6 @@ export default function Dashboard() {
   const presentes = ativos.filter((m) => checkedInIds.has(m.id));
   const ausentes = ativos.filter((m) => !checkedInIds.has(m.id));
   const now = new Date();
-  const windowOpen = now.getHours() * 60 + now.getMinutes() >= 17 * 60;
-  const atrasados = windowOpen ? ausentes.length : 0;
 
   const folhaHoje = presentes.reduce((s, m) => s + getDiaria(m, config), 0);
   const folhaPrevistaMes = ativos.reduce((s, m) => s + getDiaria(m, config), 0) * 26;
@@ -68,8 +66,8 @@ export default function Dashboard() {
     if (m.status === 'ativo' && !m.pix) alerts.push({ type: 'pix', msg: `${m.nome} está com PIX pendente.`, tone: 'amber' });
     if (m.status === 'ativo' && (!m.telefone || !m.banco)) alerts.push({ type: 'incomplete', msg: `Cadastro de ${m.nome} está incompleto.`, tone: 'amber' });
   });
-  if (ausentes.length > 0 && windowOpen) {
-    alerts.push({ type: 'absent', msg: `${ausentes.length} motoboy(s) ativo(s) ainda não fizeram check-in hoje.`, tone: 'red' });
+  if (ausentes.length > 0) {
+    alerts.push({ type: 'absent', msg: `${ausentes.length} motoboy(s) ativo(s) ainda não fizeram check-in hoje.`, tone: 'amber' });
   }
 
   return (
@@ -92,7 +90,6 @@ export default function Dashboard() {
         <StatCard label="Ativos" value={ativos.length} icon={UserCheck} tone="green" />
         <StatCard label="Presentes hoje" value={presentes.length} icon={UserCheck} tone="green" />
         <StatCard label="Ausentes hoje" value={ausentes.length} icon={UserX} tone="red" />
-        <StatCard label="Atrasados" value={atrasados} icon={Clock} tone="gold" />
         <StatCard label="Folha prevista (mês)" value={formatBRL(folhaPrevistaMes)} icon={Wallet} tone="gold" />
         <StatCard label="Valor semanal" value={formatBRL(valorSemanal)} icon={TrendingUp} tone="blue" />
         <StatCard label="Total pago" value={formatBRL(totalPago)} icon={Banknote} tone="green" />

@@ -29,24 +29,6 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'PIN incorreto. Tente novamente.' }, { status: 400 });
     }
 
-    const hour = now.getHours();
-    const minute = now.getMinutes();
-    const timeMinutes = hour * 60 + minute;
-    const windowStart = 17 * 60;
-    const windowEnd = 18 * 60 + 30;
-
-    if (timeMinutes < windowStart || timeMinutes > windowEnd) {
-      await base44.asServiceRole.entities.Auditoria.create({
-        acao: 'check_in_fora_horario',
-        usuario: user.email,
-        detalhes: `Tentativa de check-in fora do horário por ${motoboy.nome}`,
-        data_hora: now.toISOString(),
-        ip,
-        motoboy_id: motoboy.id
-      });
-      return Response.json({ error: 'check_in_encerrado' }, { status: 400 });
-    }
-
     const today = now.toISOString().split('T')[0];
     const existing = await base44.asServiceRole.entities.CheckIn.filter({
       motoboy_id: motoboy.id,
