@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { logAuditoria } from '@/lib/donbaron';
-import { Save, CheckCircle2 } from 'lucide-react';
+import { Save, CheckCircle2, AlertTriangle, Trash2 } from 'lucide-react';
 
 const DAYS = [
   { key: 'seg', label: 'Segunda' },
@@ -132,6 +132,111 @@ export default function Configuracoes() {
           </Button>
         </div>
       </Card>
+
+      <ZonaPerigo />
     </div>
+  );
+}
+
+// ===== ZONA DE PERIGO: RESET DE DADOS =====
+const ALVOS_RESET = [
+  { key: 'checkins', label: 'Check-ins (presenças)' },
+  { key: 'consumos', label: 'Consumos' },
+  { key: 'pagamentos', label: 'Pagamentos' },
+  { key: 'ciclos', label: 'PINs e tokens diários' },
+  { key: 'motoboys', label: 'Motoboys (funcionários)' },
+  { key: 'auditoria', label: 'Auditoria (histórico de ações)' },
+];
+
+function ZonaPerigo() {
+  const [alvos, setAlvos] = useState(['checkins', 'consumos', 'pagamentos', 'ciclos']);
+  const [confirmacao, setConfirmacao] = useState('');
+  const [executando, setExecutando] = useState(false);
+  const [resultado, setResultado] = useState(null);
+  const [erro, setErro] = useState('');
+
+  const toggle = (key) =>
+    setAlvos((a) => (a.includes(key) ? a.filter((x) => x !== key) : [...a, key]));
+
+  const executar = async () => {
+    setErro('');
+    setResultado(null);
+    if (confirmacao !== 'RESETAR') {
+      setErro('Digite RESETAR no campo de confirmação.');
+      return;
+    }
+    if (alvos.length === 0) {
+      setErro('Selecione pelo menos um tipo de dado.');
+      return;
+    }
+    if (!window.confirm('ATENÇÃO: isso apaga os dados selecionados de forma PERMANENTE. Não tem como desfazer. Continuar?')) return;
+    setExecutando(true);
+    try {
+      const res = await base44.functions.invoke('resetDados', { alvos, confirmacao });
+      const data = res?.data || res;
+      if (data?.success) {
+        setResultado(data.resultado);
+        setConfirmacao('');
+      } else {
+        setErro(data?.error || 'Falha ao executar o reset.');
+      }
+    } catch (e) {
+      setErro(e?.message || 'Falha ao executar o reset.');
+    } finally {
+      setExecutando(false);
+    }
+  };
+
+  return (
+    <Card className="p-6 border-red-300/60 bg-red-50/30 shadow-sm space-y-4">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="w-5 h-5 text-red-600" />
+        <h2 className="text-lg font-heading font-bold text-red-700">Zona de Perigo — Reset de Dados</h2>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Apaga permanentemente os dados selecionados. Use para limpar dados de teste antes de começar a operação real.
+        A configuração de diárias <strong>não</strong> é apagada.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {ALVOS_RESET.map((a) => (
+          <label key={a.key} className="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={alvos.includes(a.key)}
+              onChange={() => toggle(a.key)}
+              className="w-4 h-4 accent-red-600"
+            />
+            {a.label}
+          </label>
+        ))}
+      </div>
+      <div className="space-y-2 max-w-xs">
+        <Label className="text-red-700">Digite RESETAR para confirmar</Label>
+        <Input
+          value={confirmacao}
+          onChange={(e) => setConfirmacao(e.target.value.toUpperCase())}
+          placeholder="RESETAR"
+          className="border-red-300"
+        />
+      </div>
+      {erro && <p className="text-sm text-red-600">{erro}</p>}
+      {resultado && (
+        <div className="text-sm bg-white rounded-lg border border-emerald-200 p-3">
+          <p className="font-semibold text-emerald-700 mb-1">Reset concluído:</p>
+          {Object.entries(resultado).map(([k, v]) => (
+            <p key={k} className="text-muted-foreground">{k}: {v} registro(s) apagado(s)</p>
+          ))}
+        </div>
+      )}
+      <Button
+        variant="destructive"
+        onClick={executar}
+        disabled={executando || confirmacao !== 'RESETAR'}
+        className="gap-2"
+      >
+        <Trash2 className="w-4 h-4" />
+        {executando ? 'Apagando...' : 'Apagar dados selecionados'}
+      </Button>
+    </Card>
   );
 }
