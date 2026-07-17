@@ -20,6 +20,7 @@ import Auditoria from '@/pages/admin/Auditoria';
 import Configuracoes from '@/pages/admin/Configuracoes';
 import ControlePresenca from '@/pages/admin/ControlePresenca';
 import AgenteSeguranca from '@/pages/admin/AgenteSeguranca';
+import ConsumoMotoboy from '@/pages/admin/ConsumoMotoboy';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -61,6 +62,7 @@ const AuthenticatedApp = () => {
           <Route path="/admin/configuracoes" element={<Configuracoes />} />
           <Route path="/admin/presenca" element={<ControlePresenca />} />
           <Route path="/admin/agente-seguranca" element={<AgenteSeguranca />} />
+          <Route path="/admin/consumo" element={<ConsumoMotoboy />} />
         </Route>
       </Route>
       <Route path="*" element={<PageNotFound />} />

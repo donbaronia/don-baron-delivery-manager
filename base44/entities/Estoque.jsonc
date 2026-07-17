@@ -1,0 +1,28 @@
+{
+  "name": "Estoque",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string"
+    },
+    "categoria": {
+      "type": "string"
+    },
+    "valor": {
+      "type": "number"
+    },
+    "quantidade": {
+      "type": "number",
+      "default": 0
+    },
+    "unidade": {
+      "type": "string",
+      "default": "un"
+    }
+  },
+  "required": [
+    "nome",
+    "valor",
+    "quantidade"
+  ]
+}

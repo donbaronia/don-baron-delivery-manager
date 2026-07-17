@@ -1,0 +1,78 @@
+{
+  "name": "ConsumoMotoboy",
+  "type": "object",
+  "properties": {
+    "motoboy_id": {
+      "type": "string"
+    },
+    "motoboy_nome": {
+      "type": "string"
+    },
+    "produto": {
+      "type": "string"
+    },
+    "categoria": {
+      "type": "string"
+    },
+    "quantidade": {
+      "type": "number",
+      "default": 1
+    },
+    "valor_unitario": {
+      "type": "number"
+    },
+    "valor_total": {
+      "type": "number"
+    },
+    "observacao": {
+      "type": "string"
+    },
+    "data": {
+      "type": "string",
+      "format": "date"
+    },
+    "hora": {
+      "type": "string"
+    },
+    "usuario": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ativo",
+        "cancelado",
+        "descontado"
+      ],
+      "default": "ativo"
+    },
+    "motivo_cancelamento": {
+      "type": "string"
+    },
+    "cancelado_por": {
+      "type": "string"
+    },
+    "cancelado_em": {
+      "type": "string"
+    },
+    "impresso": {
+      "type": "boolean",
+      "default": false
+    },
+    "estoque_baixado": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "motoboy_id",
+    "motoboy_nome",
+    "produto",
+    "quantidade",
+    "valor_unitario",
+    "valor_total",
+    "data",
+    "hora",
+    "usuario"
+  ]
+}

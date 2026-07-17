@@ -6,12 +6,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import PinPad from '@/components/PinPad';
 import { formatBRL, formatDate, formatDateTime, todayISO } from '@/lib/donbaron';
 import {
-  Bike, CheckCircle2, Clock, History, Calendar, Wallet, QrCode, User, LogOut, ChevronRight, Lock,
+  Bike, CheckCircle2, Clock, History, Calendar, Wallet, QrCode, User, LogOut, ChevronRight, Lock, Utensils,
 } from 'lucide-react';
 
 const MENU = [
   { key: 'historico', label: 'Meu Histórico', icon: History },
   { key: 'dias', label: 'Dias Trabalhados', icon: Calendar },
+  { key: 'consumos', label: 'Meus Consumos', icon: Utensils },
   { key: 'pagamentos', label: 'Pagamentos', icon: Wallet },
   { key: 'pix', label: 'Meu PIX', icon: QrCode },
   { key: 'conta', label: 'Minha Conta', icon: User },
@@ -26,17 +27,20 @@ export default function Portal() {
   const [checkInResult, setCheckInResult] = useState(null);
   const [view, setView] = useState('home');
   const [history, setHistory] = useState({ checkIns: [], payments: [] });
+  const [consumos, setConsumos] = useState([]);
 
   const loadMotoboy = async () => {
     if (!user?.email) return;
     const list = await base44.entities.Motoboy.filter({ email: user.email });
     if (list.length > 0) {
       setMotoboy(list[0]);
-      const [ci, pay] = await Promise.all([
+      const [ci, pay, cons] = await Promise.all([
         base44.entities.CheckIn.filter({ motoboy_id: list[0].id }, '-data', 50),
         base44.entities.Pagamento.filter({ motoboy_id: list[0].id }, '-data', 50),
+        base44.entities.ConsumoMotoboy.filter({ motoboy_id: list[0].id }, '-data', 50),
       ]);
       setHistory({ checkIns: ci, payments: pay });
+      setConsumos(cons);
     }
     setLoading(false);
   };
@@ -189,6 +193,26 @@ export default function Portal() {
                   <span className="text-xs text-muted-foreground">{c.hora}</span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {view === 'consumos' && (
+            <div className="space-y-3">
+              {consumos.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum consumo registrado.</p>
+              ) : (
+                consumos.map((c) => (
+                  <div key={c.id} className={`flex items-center justify-between bg-card border rounded-xl p-4 ${c.status === 'cancelado' ? 'border-red-200/60 opacity-60' : 'border-border/60'}`}>
+                    <div>
+                      <p className="text-sm font-medium">{c.produto} {c.status === 'cancelado' && <span className="text-xs text-red-600">• Cancelado</span>}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(c.data)} {c.hora?.substring(0, 5)} • {c.quantidade}x</p>
+                    </div>
+                    <span className={`font-bold ${c.status === 'cancelado' ? 'text-muted-foreground line-through' : 'text-red-600'}`}>
+                      -{formatBRL(c.valor_total)}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           )}
 
