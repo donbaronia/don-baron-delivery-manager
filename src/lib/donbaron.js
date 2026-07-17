@@ -29,13 +29,33 @@ export const todayISO = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-// Soma o consumo pendente/descontado do mês (ignora cancelados)
-export function consumoDoMes(consumos, motoboyId, month, year) {
-  return (consumos || []).filter((c) => {
-    if (c.motoboy_id !== motoboyId || c.status === 'cancelado') return false;
-    const d = new Date(c.data + 'T00:00:00');
-    return d.getMonth() === month && d.getFullYear() === year;
-  });
+export const localISO = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// ===== CICLO SEMANAL DON BARON =====
+// A semana começa na QUARTA e fecha na TERÇA. Pagamento na quarta seguinte.
+// offset 0 = semana em andamento; -1 = semana fechada (a pagar); -2 = anterior...
+export function cicloSemanal(offset = 0, ref = new Date()) {
+  const d = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
+  const diff = (d.getDay() - 3 + 7) % 7; // dias desde a última quarta (3 = quarta)
+  const start = new Date(d);
+  start.setDate(d.getDate() - diff + offset * 7);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return { start, end, startISO: localISO(start), endISO: localISO(end) };
+}
+
+export const dentroDoCiclo = (dataStr, ciclo) =>
+  !!dataStr && dataStr >= ciclo.startISO && dataStr <= ciclo.endISO;
+
+export const labelCiclo = (ciclo) =>
+  `${ciclo.start.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} (qua) — ${ciclo.end.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} (ter)`;
+
+// Consumos de um motoboy dentro de um ciclo (ignora cancelados)
+export function consumoDoCiclo(consumos, motoboyId, ciclo) {
+  return (consumos || []).filter((c) =>
+    c.motoboy_id === motoboyId && c.status !== 'cancelado' && dentroDoCiclo(c.data, ciclo)
+  );
 }
 
 export function getDiaria(motoboy, config) {

@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     if (user.role !== 'admin') return Response.json({ error: 'Acesso negado' }, { status: 403 });
 
     const body = await req.json();
-    const { motoboy_id, forma, banco, valor, dias, valor_bruto, desconto_consumo, consumo_ids } = body;
+    const { motoboy_id, forma, banco, valor, dias, valor_bruto, desconto_consumo, consumo_ids, periodo_inicio, periodo_fim } = body;
 
     const motoboys = await base44.asServiceRole.entities.Motoboy.filter({ id: motoboy_id });
     const motoboy = motoboys[0];
@@ -45,6 +45,8 @@ Deno.serve(async (req) => {
       valor,
       valor_bruto: valor_bruto ?? valor,
       desconto_consumo: desconto_consumo || 0,
+      periodo_inicio: periodo_inicio || '',
+      periodo_fim: periodo_fim || '',
       recibo,
       dias: dias || 0
     });
@@ -72,7 +74,7 @@ Deno.serve(async (req) => {
     await base44.asServiceRole.entities.Auditoria.create({
       acao: 'pagamento',
       usuario: user.email,
-      detalhes: `Pagamento de R$ ${Number(valor).toFixed(2)} para ${motoboy.nome} via ${forma}${banco ? ' (' + banco + ')' : ''}. Bruto: R$ ${Number(valor_bruto ?? valor).toFixed(2)}. Desconto consumo: R$ ${Number(desconto_consumo || 0).toFixed(2)} (${consumosDescontados} itens abatidos). Recibo: ${recibo}`,
+      detalhes: `Pagamento de R$ ${Number(valor).toFixed(2)} para ${motoboy.nome} via ${forma}${banco ? ' (' + banco + ')' : ''}. Bruto: R$ ${Number(valor_bruto ?? valor).toFixed(2)}. Desconto consumo: R$ ${Number(desconto_consumo || 0).toFixed(2)} (${consumosDescontados} itens abatidos). Semana: ${periodo_inicio || '?'} a ${periodo_fim || '?'}. Recibo: ${recibo}`,
       data_hora: t.iso,
       ip,
       motoboy_id: motoboy.id

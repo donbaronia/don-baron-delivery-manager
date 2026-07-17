@@ -54,19 +54,13 @@ export default function Portal() {
 
   const todayCheckIn = history.checkIns.find((c) => c.data === todayISO() && c.status === 'sucesso');
 
-  // ===== RESUMO FINANCEIRO DO MÊS (integrado com Consumo e Pagamentos) =====
-  const mesAtual = new Date().getMonth();
-  const anoAtual = new Date().getFullYear();
-  const doMes = (d) => {
-    const dt = new Date(d + 'T00:00:00');
-    return dt.getMonth() === mesAtual && dt.getFullYear() === anoAtual;
-  };
-  const diasMes = history.checkIns.filter((c) => c.status === 'sucesso' && doMes(c.data)).length;
+  // ===== RESUMO FINANCEIRO DA SEMANA (ciclo quarta → terça, pago na quarta) =====
+  const ciclo = cicloSemanal(0);
+  const diasMes = history.checkIns.filter((c) => c.status === 'sucesso' && dentroDoCiclo(c.data, ciclo)).length;
   const diariasMes = diasMes * getDiaria(motoboy, config);
-  const consumoItensMes = consumoDoMes(consumos, motoboy?.id, mesAtual, anoAtual);
+  const consumoItensMes = consumoDoCiclo(consumos, motoboy?.id, ciclo);
   const consumoMes = consumoItensMes.reduce((s, c) => s + (c.valor_total || 0), 0);
-  const pagoMes = history.payments.filter((p) => doMes(p.data)).reduce((s, p) => s + (p.valor || 0), 0);
-  const aReceber = Math.max(0, diariasMes + (motoboy?.bonus || 0) - (motoboy?.descontos || 0) - consumoMes - pagoMes);
+  const aReceber = Math.max(0, diariasMes + (motoboy?.bonus || 0) - (motoboy?.descontos || 0) - consumoMes);
 
   const handlePinComplete = async (pin) => {
     setPinError('');
@@ -219,7 +213,7 @@ export default function Portal() {
             <div className="space-y-3">
               <div className="bg-card border border-border/60 rounded-xl p-4 flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Consumo deste mês</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Consumo desta semana</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">Será descontado do seu pagamento</p>
                 </div>
                 <p className="text-xl font-bold text-orange-600">−{formatBRL(consumoMes)}</p>
@@ -354,7 +348,8 @@ export default function Portal() {
 
           {/* Resumo do mês */}
           <div className="rounded-2xl p-5 border border-border/60 bg-card text-left space-y-3">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Seu mês até agora</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Sua semana ({labelCiclo(ciclo)})</p>
+            <p className="text-[11px] text-muted-foreground -mt-1">Fecha na terça • pagamento na quarta</p>
             <div className="grid grid-cols-3 gap-2 text-center">
               <div>
                 <p className="text-lg font-bold text-foreground">{diasMes}</p>

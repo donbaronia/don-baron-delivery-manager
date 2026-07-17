@@ -25,6 +25,8 @@ export default function PaymentDialog({ open, onClose, motoboy, valorLiquido, di
         valor_bruto: detalhes?.bruto ?? valorLiquido,
         desconto_consumo: detalhes?.consumoTotal ?? 0,
         consumo_ids: detalhes?.consumoPendenteIds ?? [],
+        periodo_inicio: detalhes?.periodoInicio || '',
+        periodo_fim: detalhes?.periodoFim || '',
       });
       setResult(res.data);
     } catch (e) {
@@ -69,6 +71,11 @@ export default function PaymentDialog({ open, onClose, motoboy, valorLiquido, di
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="bg-muted rounded-xl p-4 space-y-2">
+                {detalhes?.periodoLabel && (
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wide text-center pb-1 border-b border-border/40">
+                    Semana {detalhes.periodoLabel}
+                  </p>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Diárias ({dias} dia{dias !== 1 ? 's' : ''})</span>
                   <span className="font-medium">{formatBRL(detalhes?.diarias ?? valorLiquido)}</span>

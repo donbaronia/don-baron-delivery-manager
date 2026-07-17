@@ -39,6 +39,14 @@
       "type": "number",
       "default": 0
     },
+    "periodo_inicio": {
+      "type": "string",
+      "format": "date"
+    },
+    "periodo_fim": {
+      "type": "string",
+      "format": "date"
+    },
     "recibo": {
       "type": "string"
     },

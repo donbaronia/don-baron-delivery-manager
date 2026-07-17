@@ -7,8 +7,8 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '@/components/ui/table';
 import PaymentDialog from '@/components/PaymentDialog';
-import { formatBRL, getDiaria, consumoDoMes } from '@/lib/donbaron';
-import { DollarSign, Utensils } from 'lucide-react';
+import { formatBRL, getDiaria, cicloSemanal, dentroDoCiclo, labelCiclo, consumoDoCiclo } from '@/lib/donbaron';
+import { DollarSign, Utensils, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function Financeiro() {
   const [motoboys, setMotoboys] = useState([]);
@@ -18,6 +18,8 @@ export default function Financeiro() {
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [payTarget, setPayTarget] = useState(null);
+  // -1 = semana fechada (paga na quarta) — visão padrão. 0 = semana em andamento.
+  const [weekOffset, setWeekOffset] = useState(-1);
 
   const load = async () => {
     const [m, c, p, conf, cons] = await Promise.all([
@@ -37,47 +39,49 @@ export default function Financeiro() {
 
   useEffect(() => { load(); }, []);
 
-  const rows = useMemo(() => {
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
+  const ciclo = useMemo(() => cicloSemanal(weekOffset), [weekOffset]);
 
+  const rows = useMemo(() => {
     return motoboys.map((m) => {
-      const monthCheckIns = checkIns.filter((c) => {
-        if (c.motoboy_id !== m.id || c.status !== 'sucesso') return false;
-        const d = new Date(c.data + 'T00:00:00');
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-      });
-      const dias = monthCheckIns.length;
+      const weekCheckIns = checkIns.filter(
+        (c) => c.motoboy_id === m.id && c.status === 'sucesso' && dentroDoCiclo(c.data, ciclo)
+      );
+      const dias = weekCheckIns.length;
       const diarias = dias * getDiaria(m, config);
       const bonus = m.bonus || 0;
       const descontos = m.descontos || 0;
 
-      // ===== INTEGRAÇÃO COM CONSUMO =====
-      const consumoItens = consumoDoMes(consumos, m.id, currentMonth, currentYear);
+      // ===== INTEGRAÇÃO COM CONSUMO (dentro do ciclo) =====
+      const consumoItens = consumoDoCiclo(consumos, m.id, ciclo);
       const consumoTotal = consumoItens.reduce((s, c) => s + (c.valor_total || 0), 0);
       const consumoPendenteIds = consumoItens.filter((c) => c.status === 'ativo').map((c) => c.id);
 
       const bruto = diarias + bonus;
       const liquido = bruto - descontos - consumoTotal;
 
-      const monthPayments = payments.filter((p) => {
+      // Pagamentos deste ciclo: novos têm periodo_inicio; antigos caem no fallback
+      // (data do pagamento entre o início do ciclo e 7 dias após o fim).
+      const cicloPayments = payments.filter((p) => {
         if (p.motoboy_id !== m.id) return false;
-        const d = new Date(p.data + 'T00:00:00');
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        if (p.periodo_inicio) return p.periodo_inicio === ciclo.startISO;
+        const limite = new Date(ciclo.end);
+        limite.setDate(limite.getDate() + 7);
+        const limiteISO = `${limite.getFullYear()}-${String(limite.getMonth() + 1).padStart(2, '0')}-${String(limite.getDate()).padStart(2, '0')}`;
+        return p.data >= ciclo.startISO && p.data <= limiteISO;
       });
-      const totalPagoMes = monthPayments.reduce((s, p) => s + (p.valor || 0), 0);
-      const status = totalPagoMes >= liquido ? 'pago' : 'pendente';
+      const totalPago = cicloPayments.reduce((s, p) => s + (p.valor || 0), 0);
+      const status = liquido > 0 && totalPago >= liquido ? 'pago' : 'pendente';
 
-      return { m, dias, diarias, bonus, descontos, consumoTotal, consumoItens, consumoPendenteIds, bruto, liquido, totalPagoMes, status };
+      return { m, dias, diarias, bonus, descontos, consumoTotal, consumoItens, consumoPendenteIds, bruto, liquido, totalPago, status };
     });
-  }, [motoboys, checkIns, payments, config, consumos]);
+  }, [motoboys, checkIns, payments, config, consumos, ciclo]);
 
   const totals = rows.reduce((acc, r) => ({
     diarias: acc.diarias + r.diarias,
     bruto: acc.bruto + r.bruto,
     consumo: acc.consumo + r.consumoTotal,
     liquido: acc.liquido + r.liquido,
-    pago: acc.pago + r.totalPagoMes,
+    pago: acc.pago + r.totalPago,
   }), { diarias: 0, bruto: 0, consumo: 0, liquido: 0, pago: 0 });
 
   if (loading) {
@@ -90,11 +94,25 @@ export default function Financeiro() {
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-[1400px] mx-auto">
-      <div>
-        <h1 className="text-2xl font-heading font-bold text-foreground">Painel Financeiro</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-heading font-bold text-foreground">Painel Financeiro</h1>
+          <p className="text-sm text-muted-foreground mt-1">Folha semanal • quarta a terça • pagamento na quarta</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={() => setWeekOffset((w) => w - 1)}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <div className="text-center min-w-[220px]">
+            <p className="text-sm font-semibold">{labelCiclo(ciclo)}</p>
+            <Badge variant="outline" className={weekOffset === -1 ? 'text-accent border-accent/40' : weekOffset === 0 ? 'text-amber-600 border-amber-300' : 'text-muted-foreground'}>
+              {weekOffset === -1 ? 'Semana fechada — pagar agora' : weekOffset === 0 ? 'Semana em andamento' : 'Semana anterior'}
+            </Badge>
+          </div>
+          <Button variant="outline" size="icon" onClick={() => setWeekOffset((w) => Math.min(0, w + 1))} disabled={weekOffset >= 0}>
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
@@ -103,7 +121,7 @@ export default function Financeiro() {
           <p className="text-xl font-bold mt-1">{formatBRL(totals.bruto)}</p>
         </Card>
         <Card className="p-4 border-border/60 shadow-sm">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">Consumo (mês)</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Consumo (semana)</p>
           <p className="text-xl font-bold text-orange-600 mt-1">−{formatBRL(totals.consumo)}</p>
         </Card>
         <Card className="p-4 border-border/60 shadow-sm">
@@ -116,7 +134,7 @@ export default function Financeiro() {
         </Card>
         <Card className="p-4 border-border/60 shadow-sm">
           <p className="text-xs text-muted-foreground uppercase tracking-wide">Pendente</p>
-          <p className="text-xl font-bold text-amber-600 mt-1">{formatBRL(totals.liquido - totals.pago)}</p>
+          <p className="text-xl font-bold text-amber-600 mt-1">{formatBRL(Math.max(0, totals.liquido - totals.pago))}</p>
         </Card>
       </div>
 
@@ -167,7 +185,8 @@ export default function Financeiro() {
                       size="sm"
                       variant="outline"
                       onClick={() => setPayTarget(r)}
-                      disabled={r.liquido <= 0 || r.status === 'pago'}
+                      disabled={r.liquido <= 0 || r.status === 'pago' || weekOffset === 0}
+                      title={weekOffset === 0 ? 'A semana em andamento só fecha na terça' : undefined}
                       className="gap-1.5"
                     >
                       <DollarSign className="w-3.5 h-3.5" />
@@ -196,6 +215,9 @@ export default function Financeiro() {
             consumoItens: payTarget.consumoItens,
             consumoPendenteIds: payTarget.consumoPendenteIds,
             bruto: payTarget.bruto,
+            periodoInicio: ciclo.startISO,
+            periodoFim: ciclo.endISO,
+            periodoLabel: labelCiclo(ciclo),
           }}
         />
       )}

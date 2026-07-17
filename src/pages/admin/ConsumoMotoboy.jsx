@@ -14,9 +14,10 @@ const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
 
 const getWeekRange = () => {
   const now = new Date();
-  const day = now.getDay() || 7;
+  // Ciclo Don Baron: semana começa na QUARTA e fecha na TERÇA
+  const diff = (now.getDay() - 3 + 7) % 7;
   const monday = new Date(now);
-  monday.setDate(now.getDate() - day + 1);
+  monday.setDate(now.getDate() - diff);
   monday.setHours(0, 0, 0, 0);
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
@@ -183,7 +184,7 @@ export default function ConsumoMotoboy() {
           <Utensils className="w-6 h-6 text-accent" />
           Consumo do Motoboy
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">Registre consumos — o valor é descontado automaticamente na folha semanal</p>
+        <p className="text-sm text-muted-foreground mt-1">Registre consumos — o valor é descontado automaticamente na folha da semana (quarta a terça)</p>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
