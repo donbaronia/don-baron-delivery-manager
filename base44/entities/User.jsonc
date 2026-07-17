@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "motoboy"
+      ],
+      "default": "motoboy"
+    }
+  },
+  "name": "User"
+}

@@ -1,0 +1,49 @@
+{
+  "name": "ConfigDiaria",
+  "type": "object",
+  "properties": {
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "fixo",
+        "semanal"
+      ],
+      "default": "semanal"
+    },
+    "valor_fixo": {
+      "type": "number",
+      "default": 90
+    },
+    "valor_seg": {
+      "type": "number",
+      "default": 89
+    },
+    "valor_ter": {
+      "type": "number",
+      "default": 89
+    },
+    "valor_qua": {
+      "type": "number",
+      "default": 89
+    },
+    "valor_qui": {
+      "type": "number",
+      "default": 89
+    },
+    "valor_sex": {
+      "type": "number",
+      "default": 99
+    },
+    "valor_sab": {
+      "type": "number",
+      "default": 99
+    },
+    "valor_dom": {
+      "type": "number",
+      "default": 120
+    }
+  },
+  "required": [
+    "tipo"
+  ]
+}

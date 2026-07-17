@@ -1,0 +1,73 @@
+{
+  "name": "Motoboy",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "nome": {
+      "type": "string"
+    },
+    "foto": {
+      "type": "string"
+    },
+    "telefone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "pix": {
+      "type": "string"
+    },
+    "tipo_chave_pix": {
+      "type": "string",
+      "enum": [
+        "cpf",
+        "cnpj",
+        "email",
+        "telefone",
+        "aleatoria"
+      ],
+      "default": "email"
+    },
+    "banco": {
+      "type": "string"
+    },
+    "pin": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ativo",
+        "inativo"
+      ],
+      "default": "ativo"
+    },
+    "data_entrada": {
+      "type": "string",
+      "format": "date"
+    },
+    "observacoes": {
+      "type": "string"
+    },
+    "diaria": {
+      "type": "number"
+    },
+    "bonus": {
+      "type": "number",
+      "default": 0
+    },
+    "descontos": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "nome",
+    "email",
+    "telefone",
+    "pin"
+  ]
+}

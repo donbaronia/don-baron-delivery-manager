@@ -1,0 +1,49 @@
+{
+  "name": "Pagamento",
+  "type": "object",
+  "properties": {
+    "motoboy_id": {
+      "type": "string"
+    },
+    "motoboy_nome": {
+      "type": "string"
+    },
+    "data": {
+      "type": "string",
+      "format": "date"
+    },
+    "hora": {
+      "type": "string"
+    },
+    "usuario": {
+      "type": "string"
+    },
+    "forma": {
+      "type": "string",
+      "enum": [
+        "pix",
+        "dinheiro",
+        "transferencia"
+      ]
+    },
+    "banco": {
+      "type": "string"
+    },
+    "valor": {
+      "type": "number"
+    },
+    "recibo": {
+      "type": "string"
+    },
+    "dias": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "motoboy_id",
+    "motoboy_nome",
+    "data",
+    "valor",
+    "forma"
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "name": "CheckIn",
+  "type": "object",
+  "properties": {
+    "motoboy_id": {
+      "type": "string"
+    },
+    "motoboy_nome": {
+      "type": "string"
+    },
+    "data": {
+      "type": "string",
+      "format": "date"
+    },
+    "hora": {
+      "type": "string"
+    },
+    "usuario": {
+      "type": "string"
+    },
+    "dispositivo": {
+      "type": "string"
+    },
+    "ip": {
+      "type": "string"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "automatico",
+        "manual"
+      ],
+      "default": "automatico"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "sucesso",
+        "encerrado",
+        "invalido"
+      ],
+      "default": "sucesso"
+    },
+    "motivo": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "motoboy_id",
+    "motoboy_nome",
+    "data",
+    "hora"
+  ]
+}

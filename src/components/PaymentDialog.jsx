@@ -1,0 +1,105 @@
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { base44 } from '@/api/base44Client';
+import { formatBRL, BANCOS } from '@/lib/donbaron';
+import { CheckCircle2, Receipt } from 'lucide-react';
+
+export default function PaymentDialog({ open, onClose, motoboy, valorLiquido, dias }) {
+  const [forma, setForma] = useState('pix');
+  const [banco, setBanco] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const handlePay = async () => {
+    setSaving(true);
+    try {
+      const res = await base44.functions.invoke('registrarPagamento', {
+        motoboy_id: motoboy.id,
+        forma,
+        banco: forma === 'pix' ? banco : '',
+        valor: valorLiquido,
+        dias,
+      });
+      setResult(res.data);
+    } catch (e) {
+      alert('Erro: ' + (e.response?.data?.error || e.message));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleClose = () => {
+    setResult(null);
+    setForma('pix');
+    setBanco('');
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-md">
+        {result ? (
+          <div className="text-center py-6 space-y-4">
+            <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg text-foreground">Pagamento Registrado</h3>
+              <p className="text-sm text-muted-foreground mt-1">{motoboy.nome} • {formatBRL(valorLiquido)}</p>
+            </div>
+            <div className="bg-muted rounded-xl p-4 flex items-center gap-3 justify-center">
+              <Receipt className="w-5 h-5 text-accent" />
+              <div>
+                <p className="text-xs text-muted-foreground">Recibo</p>
+                <p className="font-mono font-bold text-foreground">{result.recibo}</p>
+              </div>
+            </div>
+            <Button onClick={handleClose} className="w-full">Fechar</Button>
+          </div>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>Pagamento — {motoboy.nome}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="bg-muted rounded-xl p-4 text-center">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Valor a pagar</p>
+                <p className="text-3xl font-bold text-foreground mt-1">{formatBRL(valorLiquido)}</p>
+                <p className="text-xs text-muted-foreground mt-1">{dias} dia(s) trabalhado(s)</p>
+              </div>
+              <div>
+                <Label>Forma de pagamento</Label>
+                <Select value={forma} onValueChange={setForma}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pix">PIX</SelectItem>
+                    <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                    <SelectItem value="transferencia">Transferência</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {forma === 'pix' && (
+                <div>
+                  <Label>Banco</Label>
+                  <Select value={banco} onValueChange={setBanco}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o banco" /></SelectTrigger>
+                    <SelectContent>{BANCOS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={handleClose}>Cancelar</Button>
+              <Button onClick={handlePay} disabled={saving || (forma === 'pix' && !banco)}>
+                {saving ? 'Processando...' : '💰 Pagar'}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}

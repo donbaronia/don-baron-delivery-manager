@@ -1,0 +1,29 @@
+{
+  "name": "Auditoria",
+  "type": "object",
+  "properties": {
+    "acao": {
+      "type": "string"
+    },
+    "usuario": {
+      "type": "string"
+    },
+    "detalhes": {
+      "type": "string"
+    },
+    "data_hora": {
+      "type": "string"
+    },
+    "ip": {
+      "type": "string"
+    },
+    "motoboy_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "acao",
+    "usuario",
+    "data_hora"
+  ]
+}
