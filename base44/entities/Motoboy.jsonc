@@ -76,8 +76,6 @@
   },
   "required": [
     "nome",
-    "email",
-    "telefone",
     "pin"
   ]
 }

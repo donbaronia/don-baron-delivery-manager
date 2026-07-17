@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PinPad from '@/components/PinPad';
 import { formatBRL, formatDate, todayISO, getDiaria } from '@/lib/donbaron';
@@ -21,6 +22,9 @@ const MENU = [
 export default function Portal() {
   const { user, logout } = useAuth();
   const [motoboy, setMotoboy] = useState(null);
+  const [vincPin, setVincPin] = useState('');
+  const [vincError, setVincError] = useState('');
+  const [vincLoading, setVincLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pinOpen, setPinOpen] = useState(false);
   const [pinError, setPinError] = useState('');
@@ -100,10 +104,44 @@ export default function Portal() {
   }
 
   if (!motoboy) {
+    const vincular = async () => {
+      setVincError('');
+      setVincLoading(true);
+      try {
+        const res = await base44.functions.invoke('vincularCadastro', { pin: vincPin });
+        const data = res?.data || res;
+        if (data?.success) {
+          await loadMotoboy();
+        } else {
+          setVincError(data?.error || 'Não foi possível vincular.');
+        }
+      } catch (e) {
+        setVincError(e.response?.data?.error || e.message || 'Não foi possível vincular.');
+      } finally {
+        setVincLoading(false);
+      }
+    };
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-background gap-4">
-        <p className="text-muted-foreground">Sua conta de motoboy não foi encontrada.</p>
-        <Button variant="outline" onClick={() => logout()}>Sair</Button>
+      <div className="flex flex-col items-center justify-center h-screen bg-background gap-4 px-6">
+        <div className="w-full max-w-sm space-y-4 text-center">
+          <h1 className="text-xl font-heading font-bold">Vincular seu cadastro</h1>
+          <p className="text-sm text-muted-foreground">
+            Sua conta ainda não está ligada a um cadastro de motoboy.
+            Digite o <strong>PIN pessoal de 5 dígitos</strong> que a administração te passou.
+          </p>
+          <Input
+            value={vincPin}
+            onChange={(e) => setVincPin(e.target.value.replace(/\D/g, '').slice(0, 5))}
+            placeholder="•••••"
+            inputMode="numeric"
+            className="text-center text-2xl tracking-[0.5em] h-14"
+          />
+          {vincError && <p className="text-sm text-red-600">{vincError}</p>}
+          <Button className="w-full" onClick={vincular} disabled={vincLoading || vincPin.length !== 5}>
+            {vincLoading ? 'Vinculando...' : 'Vincular'}
+          </Button>
+          <Button variant="ghost" className="w-full" onClick={() => logout()}>Sair</Button>
+        </div>
       </div>
     );
   }

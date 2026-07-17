@@ -29,8 +29,8 @@ export default function MotoboyForm({ open, onClose, onSaved, motoboy }) {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const handleSave = async () => {
-    if (!form.nome || !form.email || !form.telefone || !form.pin) {
-      setInviteError('Preencha todos os campos obrigatórios.');
+    if (!form.nome || !form.pin) {
+      setInviteError('Preencha nome e PIN pessoal.');
       return;
     }
     if (form.pin.length !== 5) {
@@ -47,11 +47,13 @@ export default function MotoboyForm({ open, onClose, onSaved, motoboy }) {
       } else {
         const created = await base44.entities.Motoboy.create(form);
         await logAuditoria('novo_cadastro', `Novo motoboy cadastrado: ${form.nome}`, created.id);
-        try {
-          await base44.users.inviteUser(form.email, 'motoboy');
-        } catch (e) {
-          inviteFailed = true;
-          setInviteError('Motoboy salvo, mas o convite por email falhou (pode já existir). O usuário precisará ser convidado manualmente.');
+        if (form.email) {
+          try {
+            await base44.users.inviteUser(form.email, 'motoboy');
+          } catch (e) {
+            inviteFailed = true;
+            setInviteError('Motoboy salvo, mas o convite por email falhou (pode já existir). O usuário precisará ser convidado manualmente.');
+          }
         }
       }
       onSaved();
@@ -77,11 +79,12 @@ export default function MotoboyForm({ open, onClose, onSaved, motoboy }) {
             </div>
             <div>
               <Label>Telefone *</Label>
-              <Input value={form.telefone || ''} onChange={(e) => set('telefone', e.target.value)} placeholder="(11) 99999-9999" />
+              <Input value={form.telefone || ''} onChange={(e) => set('telefone', e.target.value)} placeholder="Opcional" />
             </div>
             <div>
               <Label>Email *</Label>
-              <Input value={form.email || ''} onChange={(e) => set('email', e.target.value)} placeholder="email@exemplo.com" type="email" />
+              <Input value={form.email || ''} onChange={(e) => set('email', e.target.value)} placeholder="Opcional" type="email" />
+              <p className="text-[11px] text-muted-foreground mt-1">Opcional — o motoboy pode criar a própria conta e vincular com o PIN pessoal</p>
             </div>
             <div>
               <Label>Tipo da chave PIX</Label>
