@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PinPad from '@/components/PinPad';
-import { formatBRL, formatDate, todayISO, getDiaria } from '@/lib/donbaron';
+import { formatBRL, formatDate, todayISO, getDiaria, cicloSemanal, dentroDoCiclo, labelCiclo, consumoDoCiclo } from '@/lib/donbaron';
 import {
   Bike, CheckCircle2, Clock, History, Calendar, Wallet, QrCode, User, LogOut, ChevronRight, Lock, Utensils,
 } from 'lucide-react';
