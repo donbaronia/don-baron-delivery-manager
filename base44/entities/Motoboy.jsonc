@@ -41,7 +41,8 @@
       "type": "string",
       "enum": [
         "ativo",
-        "inativo"
+        "inativo",
+        "bloqueado"
       ],
       "default": "ativo"
     },
@@ -62,6 +63,15 @@
     "descontos": {
       "type": "number",
       "default": 0
+    },
+    "bloqueado_por": {
+      "type": "string"
+    },
+    "bloqueado_em": {
+      "type": "string"
+    },
+    "motivo_bloqueio": {
+      "type": "string"
     }
   },
   "required": [

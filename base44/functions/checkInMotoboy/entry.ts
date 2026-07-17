@@ -12,11 +12,22 @@ Deno.serve(async (req) => {
     const motoboys = await base44.asServiceRole.entities.Motoboy.filter({ email: user.email });
     const motoboy = motoboys[0];
     if (!motoboy) return Response.json({ error: 'Motoboy não encontrado' }, { status: 404 });
-    if (motoboy.status !== 'ativo') return Response.json({ error: 'Motoboy inativo. Procure a administração.' }, { status: 403 });
-
     const now = new Date();
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     const navegador = req.headers.get('user-agent') || 'unknown';
+
+    if (motoboy.status === 'bloqueado') {
+      await base44.asServiceRole.entities.Auditoria.create({
+        acao: 'check_in_bloqueado',
+        usuario: user.email,
+        detalhes: `Tentativa de check-in por motoboy BLOQUEADO: ${motoboy.nome}. IP: ${ip}. Navegador: ${navegador}`,
+        data_hora: now.toISOString(),
+        ip,
+        motoboy_id: motoboy.id
+      });
+      return Response.json({ error: 'motoboy_bloqueado' }, { status: 403 });
+    }
+    if (motoboy.status !== 'ativo') return Response.json({ error: 'Motoboy inativo. Procure a administração.' }, { status: 403 });
     const today = now.toISOString().split('T')[0];
 
     // 1. Localizar ciclo ativo do dia

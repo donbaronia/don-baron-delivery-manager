@@ -66,6 +66,8 @@ export default function Portal() {
         setPinError('Check-in disponível apenas das 17:00 às 18:30.');
       } else if (err === 'pin_nao_gerado') {
         setPinError('PIN diário não gerado. Aguarde o administrador.');
+      } else if (err === 'motoboy_bloqueado') {
+        setPinError('Seu acesso foi bloqueado. Procure a administração.');
       } else {
         setPinError(err);
       }
@@ -84,6 +86,21 @@ export default function Portal() {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-background gap-4">
         <p className="text-muted-foreground">Sua conta de motoboy não foi encontrada.</p>
+        <Button variant="outline" onClick={() => logout()}>Sair</Button>
+      </div>
+    );
+  }
+
+  if (motoboy.status === 'bloqueado') {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-background px-6 text-center gap-6">
+        <div className="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center">
+          <Lock className="w-10 h-10 text-red-600" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Acesso bloqueado</h1>
+          <p className="text-muted-foreground mt-2 max-w-xs">Seu acesso foi bloqueado. Procure a administração.</p>
+        </div>
         <Button variant="outline" onClick={() => logout()}>Sair</Button>
       </div>
     );
