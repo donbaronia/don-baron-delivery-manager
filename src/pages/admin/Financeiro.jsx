@@ -18,8 +18,9 @@ export default function Financeiro() {
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [payTarget, setPayTarget] = useState(null);
-  // -1 = semana fechada (paga na quarta) — visão padrão. 0 = semana em andamento.
-  const [weekOffset, setWeekOffset] = useState(-1);
+  // 0 = semana em andamento (visão padrão no dia a dia).
+  // Na QUARTA (dia de pagamento) abre direto na semana fechada (-1).
+  const [weekOffset, setWeekOffset] = useState(() => (new Date().getDay() === 3 ? -1 : 0));
 
   const load = async () => {
     const [m, c, p, conf, cons] = await Promise.all([
@@ -112,6 +113,16 @@ export default function Financeiro() {
           <Button variant="outline" size="icon" onClick={() => setWeekOffset((w) => Math.min(0, w + 1))} disabled={weekOffset >= 0}>
             <ChevronRight className="w-4 h-4" />
           </Button>
+          {weekOffset !== -1 && (
+            <Button variant="secondary" size="sm" onClick={() => setWeekOffset(-1)}>
+              Semana a pagar
+            </Button>
+          )}
+          {weekOffset === -1 && (
+            <Button variant="secondary" size="sm" onClick={() => setWeekOffset(0)}>
+              Semana atual
+            </Button>
+          )}
         </div>
       </div>
 
