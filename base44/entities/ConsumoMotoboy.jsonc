@@ -55,6 +55,9 @@
     "cancelado_em": {
       "type": "string"
     },
+    "pagamento_id": {
+      "type": "string"
+    },
     "impresso": {
       "type": "boolean",
       "default": false

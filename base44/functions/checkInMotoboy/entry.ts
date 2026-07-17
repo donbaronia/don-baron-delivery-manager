@@ -1,5 +1,28 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
 
+// ===== Helper de fuso horário (Teresina/PI = America/Fortaleza) =====
+const TZ = 'America/Fortaleza';
+function agora() {
+  const d = new Date();
+  const p = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  }).formatToParts(d);
+  const g = (t: string) => p.find((x) => x.type === t)?.value || '00';
+  return {
+    data: `${g('year')}-${g('month')}-${g('day')}`,
+    hora: `${g('hour')}:${g('minute')}:${g('second')}`,
+    horas: parseInt(g('hour'), 10),
+    minutos: parseInt(g('minute'), 10),
+    iso: d.toISOString(),
+  };
+}
+function horaLocal(isoStr: string) {
+  try {
+    return new Intl.DateTimeFormat('pt-BR', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(isoStr));
+  } catch { return ''; }
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -12,7 +35,7 @@ Deno.serve(async (req) => {
     const motoboys = await base44.asServiceRole.entities.Motoboy.filter({ email: user.email });
     const motoboy = motoboys[0];
     if (!motoboy) return Response.json({ error: 'Motoboy não encontrado' }, { status: 404 });
-    const now = new Date();
+    const t = agora();
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     const navegador = req.headers.get('user-agent') || 'unknown';
 
@@ -21,14 +44,14 @@ Deno.serve(async (req) => {
         acao: 'check_in_bloqueado',
         usuario: user.email,
         detalhes: `Tentativa de check-in por motoboy BLOQUEADO: ${motoboy.nome}. IP: ${ip}. Navegador: ${navegador}`,
-        data_hora: now.toISOString(),
+        data_hora: t.iso,
         ip,
         motoboy_id: motoboy.id
       });
       return Response.json({ error: 'motoboy_bloqueado' }, { status: 403 });
     }
     if (motoboy.status !== 'ativo') return Response.json({ error: 'Motoboy inativo. Procure a administração.' }, { status: 403 });
-    const today = now.toISOString().split('T')[0];
+    const today = t.data;
 
     // 1. Localizar ciclo ativo do dia
     const cycles = await base44.asServiceRole.entities.CicloOperacional.filter({ data: today, status: 'ativo' });
@@ -38,15 +61,15 @@ Deno.serve(async (req) => {
         acao: 'check_in_sem_pin',
         usuario: user.email,
         detalhes: `Tentativa de check-in sem PIN diário ativo por ${motoboy.nome}. Dispositivo: ${dispositivo || 'web'}. Navegador: ${navegador}`,
-        data_hora: now.toISOString(),
+        data_hora: t.iso,
         ip,
         motoboy_id: motoboy.id
       });
       return Response.json({ error: 'pin_nao_gerado' }, { status: 400 });
     }
 
-    // 2. Validar janela de horário (17:00 às 18:30)
-    const timeMinutes = now.getHours() * 60 + now.getMinutes();
+    // 2. Validar janela de horário (17:00 às 18:30 — horário de Teresina)
+    const timeMinutes = t.horas * 60 + t.minutos;
     const windowStart = 17 * 60;
     const windowEnd = 18 * 60 + 30;
 
@@ -54,8 +77,8 @@ Deno.serve(async (req) => {
       await base44.asServiceRole.entities.Auditoria.create({
         acao: 'check_in_fora_horario',
         usuario: user.email,
-        detalhes: `Tentativa de check-in fora do horário por ${motoboy.nome} às ${now.toTimeString().substring(0, 8)}. PIN informado: ${pin || 'vazio'}. Dispositivo: ${dispositivo || 'web'}. Navegador: ${navegador}`,
-        data_hora: now.toISOString(),
+        detalhes: `Tentativa de check-in fora do horário por ${motoboy.nome} às ${t.hora}. PIN informado: ${pin || 'vazio'}. Dispositivo: ${dispositivo || 'web'}. Navegador: ${navegador}`,
+        data_hora: t.iso,
         ip,
         motoboy_id: motoboy.id
       });
@@ -68,7 +91,7 @@ Deno.serve(async (req) => {
         acao: 'pin_incorreto',
         usuario: user.email,
         detalhes: `Tentativa de PIN diário incorreto por ${motoboy.nome}. PIN informado: ${pin || 'vazio'}. Dispositivo: ${dispositivo || 'web'}. Navegador: ${navegador}`,
-        data_hora: now.toISOString(),
+        data_hora: t.iso,
         ip,
         motoboy_id: motoboy.id
       });
@@ -76,20 +99,46 @@ Deno.serve(async (req) => {
     }
 
     // 4. Localizar TOKEN individual do motoboy neste ciclo
+    //    Se não existir (motoboy cadastrado depois da geração do ciclo), cria na hora.
     const tokens = await base44.asServiceRole.entities.Token.filter({ ciclo_id: cycle.id, motoboy_id: motoboy.id });
-    const token = tokens[0];
+    let token = tokens[0];
     if (!token) {
-      return Response.json({ error: 'Token não encontrado. Contate o administrador.' }, { status: 404 });
+      const cycleTokens = await base44.asServiceRole.entities.Token.filter({ ciclo_id: cycle.id });
+      const used = new Set(cycleTokens.map((x: any) => x.token));
+      let novoToken = '';
+      let attempts = 0;
+      do {
+        novoToken = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+        attempts++;
+      } while (used.has(novoToken) && attempts < 1000);
+
+      token = await base44.asServiceRole.entities.Token.create({
+        ciclo_id: cycle.id,
+        motoboy_id: motoboy.id,
+        motoboy_nome: motoboy.nome,
+        token: novoToken,
+        consumido: false,
+        data: today
+      });
+
+      await base44.asServiceRole.entities.Auditoria.create({
+        acao: 'token_gerado_automatico',
+        usuario: user.email,
+        detalhes: `Token individual gerado automaticamente no check-in para ${motoboy.nome} (motoboy sem token no ciclo do dia).`,
+        data_hora: t.iso,
+        ip,
+        motoboy_id: motoboy.id
+      });
     }
 
     // 5. Verificar se TOKEN já foi consumido
     if (token.consumido) {
-      const hora = token.consumido_em ? new Date(token.consumido_em).toTimeString().substring(0, 5) : '';
+      const hora = token.consumido_em ? horaLocal(token.consumido_em) : '';
       await base44.asServiceRole.entities.Auditoria.create({
         acao: 'check_in_duplicado',
         usuario: user.email,
         detalhes: `Tentativa de check-in duplicado por ${motoboy.nome}. Token já consumido às ${hora}. Dispositivo: ${dispositivo || 'web'}. Navegador: ${navegador}`,
-        data_hora: now.toISOString(),
+        data_hora: t.iso,
         ip,
         motoboy_id: motoboy.id
       });
@@ -102,7 +151,7 @@ Deno.serve(async (req) => {
       motoboy_id: motoboy.id,
       motoboy_nome: motoboy.nome,
       data: today,
-      hora: now.toTimeString().substring(0, 8),
+      hora: t.hora,
       usuario: user.email,
       dispositivo: dispositivo || 'web',
       ip,
@@ -113,7 +162,7 @@ Deno.serve(async (req) => {
     // 7. Consumir TOKEN (vincular ao check-in)
     await base44.asServiceRole.entities.Token.update(token.id, {
       consumido: true,
-      consumido_em: now.toISOString(),
+      consumido_em: t.iso,
       consumido_ip: ip,
       consumido_dispositivo: dispositivo || 'web',
       check_in_id: checkIn.id
@@ -124,7 +173,7 @@ Deno.serve(async (req) => {
       acao: 'check_in',
       usuario: user.email,
       detalhes: `Check-in realizado por ${motoboy.nome}. PIN utilizado: ${pin}. Token consumido: ${maskedToken}. Admin responsável pelo PIN: ${cycle.criado_por}. IP: ${ip}. Dispositivo: ${dispositivo || 'web'}. Navegador: ${navegador}. Resultado: SUCESSO`,
-      data_hora: now.toISOString(),
+      data_hora: t.iso,
       ip,
       motoboy_id: motoboy.id
     });

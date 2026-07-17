@@ -1,5 +1,21 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
 
+// ===== Helper de fuso horário (Teresina/PI = America/Fortaleza) =====
+const TZ = 'America/Fortaleza';
+function agora() {
+  const d = new Date();
+  const p = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  }).formatToParts(d);
+  const g = (t: string) => p.find((x) => x.type === t)?.value || '00';
+  return {
+    data: `${g('year')}-${g('month')}-${g('day')}`,
+    hora: `${g('hour')}:${g('minute')}:${g('second')}`,
+    iso: d.toISOString(),
+  };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
-import { Send, Bot, User, Trash2 } from 'lucide-react';
+import { Send, Bot, User } from 'lucide-react';
 
 export default function AgentChat({ agentName, title, subtitle, greeting }) {
   const [conversations, setConversations] = useState([]);

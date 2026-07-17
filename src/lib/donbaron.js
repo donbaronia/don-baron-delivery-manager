@@ -24,7 +24,19 @@ export const formatDate = (d) =>
 export const formatDateTime = (d) =>
   d ? new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 
-export const todayISO = () => new Date().toISOString().split('T')[0];
+export const todayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+// Soma o consumo pendente/descontado do mês (ignora cancelados)
+export function consumoDoMes(consumos, motoboyId, month, year) {
+  return (consumos || []).filter((c) => {
+    if (c.motoboy_id !== motoboyId || c.status === 'cancelado') return false;
+    const d = new Date(c.data + 'T00:00:00');
+    return d.getMonth() === month && d.getFullYear() === year;
+  });
+}
 
 export function getDiaria(motoboy, config) {
   if (motoboy?.diaria != null && motoboy.diaria !== 0) return motoboy.diaria;

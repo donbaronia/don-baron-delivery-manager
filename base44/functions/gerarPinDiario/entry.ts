@@ -1,17 +1,46 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
 
+// ===== Helper de fuso horário (Teresina/PI = America/Fortaleza) =====
+const TZ = 'America/Fortaleza';
+function agora() {
+  const d = new Date();
+  const p = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  }).formatToParts(d);
+  const g = (t: string) => p.find((x) => x.type === t)?.value || '00';
+  return {
+    data: `${g('year')}-${g('month')}-${g('day')}`,
+    hora: `${g('hour')}:${g('minute')}:${g('second')}`,
+    iso: d.toISOString(),
+  };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     let user = null;
-    try { user = await base44.auth.me(); } catch (e) { /* workflow context — no user */ }
+    try { user = await base44.auth.me(); } catch (e) { /* workflow context — sem usuário */ }
 
+    let body: any = {};
+    try { body = await req.json(); } catch (e) { /* sem body */ }
+
+    // ===== SEGURANÇA =====
+    // Usuário autenticado: precisa ser admin.
     if (user && user.role !== 'admin') {
       return Response.json({ error: 'Acesso negado. Apenas administradores.' }, { status: 403 });
     }
+    // Sem usuário (workflow/chamada externa): exige segredo se configurado.
+    const isAdmin = !!user && user.role === 'admin';
+    if (!user) {
+      const secret = Deno.env.get('RESET_DIARIO_SECRET');
+      if (secret && body.secret !== secret) {
+        return Response.json({ error: 'Não autorizado' }, { status: 401 });
+      }
+    }
 
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const t = agora();
+    const today = t.data;
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
 
     // 1. Expirar ciclos ativos existentes
@@ -19,7 +48,7 @@ Deno.serve(async (req) => {
     for (const cycle of activeCycles) {
       await base44.asServiceRole.entities.CicloOperacional.update(cycle.id, {
         status: 'expirado',
-        expirado_em: now.toISOString()
+        expirado_em: t.iso
       });
     }
 
@@ -32,7 +61,7 @@ Deno.serve(async (req) => {
       data: today,
       status: 'ativo',
       criado_por: user?.email || 'sistema',
-      criado_em: now.toISOString()
+      criado_em: t.iso
     });
 
     // 4. Gerar TOKENS individuais de 4 dígitos para motoboys ativos
@@ -64,12 +93,16 @@ Deno.serve(async (req) => {
     await base44.asServiceRole.entities.Auditoria.create({
       acao: 'gerar_pin_diario',
       usuario: user?.email || 'sistema',
-      detalhes: `PIN diário gerado para ${today}. PIN: ${pin}. ${tokensCreated} tokens individuais criados.`,
-      data_hora: now.toISOString(),
+      detalhes: `PIN diário gerado para ${today}. ${tokensCreated} tokens individuais criados. Origem: ${isAdmin ? 'admin' : 'workflow/sistema'}.`,
+      data_hora: t.iso,
       ip
     });
 
-    return Response.json({ success: true, cycle: { id: cycle.id, pin }, tokensCount: tokensCreated });
+    // O PIN só é devolvido na resposta para admins autenticados.
+    if (isAdmin) {
+      return Response.json({ success: true, cycle: { id: cycle.id, pin }, tokensCount: tokensCreated });
+    }
+    return Response.json({ success: true, cycle: { id: cycle.id }, tokensCount: tokensCreated });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

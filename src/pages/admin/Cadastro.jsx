@@ -84,8 +84,9 @@ export default function Cadastro() {
 
   const checkInTodayIds = new Set(checkIns.map((c) => c.motoboy_id));
   const today = todayISO();
-  const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0];
-  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+  const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const twoDaysAgo = localISO(new Date(Date.now() - 2 * 86400000));
+  const sevenDaysAgo = localISO(new Date(Date.now() - 7 * 86400000));
 
   // Último check-in por motoboy (para filtros de ausência, usamos os check-ins carregados)
   // Como não temos todo o histórico aqui, os filtros de ausência são baseados em data_entrada como aproximação

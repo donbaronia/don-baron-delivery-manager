@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PinPad from '@/components/PinPad';
-import { formatBRL, formatDate, formatDateTime, todayISO } from '@/lib/donbaron';
+import { formatBRL, formatDate, todayISO, getDiaria, consumoDoMes } from '@/lib/donbaron';
 import {
   Bike, CheckCircle2, Clock, History, Calendar, Wallet, QrCode, User, LogOut, ChevronRight, Lock, Utensils,
 } from 'lucide-react';
@@ -28,6 +28,7 @@ export default function Portal() {
   const [view, setView] = useState('home');
   const [history, setHistory] = useState({ checkIns: [], payments: [] });
   const [consumos, setConsumos] = useState([]);
+  const [config, setConfig] = useState(null);
 
   const loadMotoboy = async () => {
     if (!user?.email) return;
@@ -41,6 +42,10 @@ export default function Portal() {
       ]);
       setHistory({ checkIns: ci, payments: pay });
       setConsumos(cons);
+      try {
+        const conf = await base44.entities.ConfigDiaria.list();
+        setConfig(conf[0] || null);
+      } catch (e) { /* sem permissão — usa diária do cadastro */ }
     }
     setLoading(false);
   };
@@ -48,6 +53,20 @@ export default function Portal() {
   useEffect(() => { loadMotoboy(); }, [user]);
 
   const todayCheckIn = history.checkIns.find((c) => c.data === todayISO() && c.status === 'sucesso');
+
+  // ===== RESUMO FINANCEIRO DO MÊS (integrado com Consumo e Pagamentos) =====
+  const mesAtual = new Date().getMonth();
+  const anoAtual = new Date().getFullYear();
+  const doMes = (d) => {
+    const dt = new Date(d + 'T00:00:00');
+    return dt.getMonth() === mesAtual && dt.getFullYear() === anoAtual;
+  };
+  const diasMes = history.checkIns.filter((c) => c.status === 'sucesso' && doMes(c.data)).length;
+  const diariasMes = diasMes * getDiaria(motoboy, config);
+  const consumoItensMes = consumoDoMes(consumos, motoboy?.id, mesAtual, anoAtual);
+  const consumoMes = consumoItensMes.reduce((s, c) => s + (c.valor_total || 0), 0);
+  const pagoMes = history.payments.filter((p) => doMes(p.data)).reduce((s, p) => s + (p.valor || 0), 0);
+  const aReceber = Math.max(0, diariasMes + (motoboy?.bonus || 0) - (motoboy?.descontos || 0) - consumoMes - pagoMes);
 
   const handlePinComplete = async (pin) => {
     setPinError('');
@@ -198,13 +217,20 @@ export default function Portal() {
 
           {view === 'consumos' && (
             <div className="space-y-3">
+              <div className="bg-card border border-border/60 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Consumo deste mês</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Será descontado do seu pagamento</p>
+                </div>
+                <p className="text-xl font-bold text-orange-600">−{formatBRL(consumoMes)}</p>
+              </div>
               {consumos.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum consumo registrado.</p>
               ) : (
                 consumos.map((c) => (
                   <div key={c.id} className={`flex items-center justify-between bg-card border rounded-xl p-4 ${c.status === 'cancelado' ? 'border-red-200/60 opacity-60' : 'border-border/60'}`}>
                     <div>
-                      <p className="text-sm font-medium">{c.produto} {c.status === 'cancelado' && <span className="text-xs text-red-600">• Cancelado</span>}</p>
+                      <p className="text-sm font-medium">{c.produto} {c.status === 'cancelado' && <span className="text-xs text-red-600">• Cancelado</span>}{c.status === 'descontado' && <span className="text-xs text-emerald-600">• Já descontado</span>}</p>
                       <p className="text-xs text-muted-foreground">{formatDate(c.data)} {c.hora?.substring(0, 5)} • {c.quantidade}x</p>
                     </div>
                     <span className={`font-bold ${c.status === 'cancelado' ? 'text-muted-foreground line-through' : 'text-red-600'}`}>
@@ -324,6 +350,25 @@ export default function Portal() {
                 <p className="text-sm text-muted-foreground">Aguardando check-in</p>
               </div>
             )}
+          </div>
+
+          {/* Resumo do mês */}
+          <div className="rounded-2xl p-5 border border-border/60 bg-card text-left space-y-3">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Seu mês até agora</p>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-lg font-bold text-foreground">{diasMes}</p>
+                <p className="text-[11px] text-muted-foreground">dias</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-orange-600">−{formatBRL(consumoMes)}</p>
+                <p className="text-[11px] text-muted-foreground">consumo</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-emerald-600">{formatBRL(aReceber)}</p>
+                <p className="text-[11px] text-muted-foreground">a receber</p>
+              </div>
+            </div>
           </div>
 
           {/* Start work button */}

@@ -7,8 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { formatBRL, formatDate, todayISO } from '@/lib/donbaron';
-import { Utensils, Printer, X, PackageSearch, User, TrendingUp } from 'lucide-react';
+import { formatBRL, formatDate } from '@/lib/donbaron';
+import { Utensils, Printer, X, PackageSearch } from 'lucide-react';
+
+const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 const getWeekRange = () => {
   const now = new Date();
@@ -19,8 +21,8 @@ const getWeekRange = () => {
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
   return {
-    start: monday.toISOString().split('T')[0],
-    end: sunday.toISOString().split('T')[0],
+    start: localISO(monday),
+    end: localISO(sunday),
   };
 };
 
@@ -304,6 +306,7 @@ export default function ConsumoMotoboy() {
                     <div className="flex items-center gap-2">
                       <p className="font-medium truncate">{c.produto}</p>
                       {c.status === 'cancelado' && <Badge variant="outline" className="text-red-600 border-red-300">Cancelado</Badge>}
+                      {c.status === 'descontado' && <Badge variant="outline" className="text-emerald-600 border-emerald-300">Descontado na folha</Badge>}
                       {c.estoque_baixado && c.status === 'ativo' && <Badge variant="outline" className="text-xs">Estoque</Badge>}
                     </div>
                     <p className="text-xs text-muted-foreground">

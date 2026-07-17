@@ -7,7 +7,7 @@ import { base44 } from '@/api/base44Client';
 import { formatBRL, BANCOS } from '@/lib/donbaron';
 import { CheckCircle2, Receipt } from 'lucide-react';
 
-export default function PaymentDialog({ open, onClose, motoboy, valorLiquido, dias }) {
+export default function PaymentDialog({ open, onClose, motoboy, valorLiquido, dias, detalhes }) {
   const [forma, setForma] = useState('pix');
   const [banco, setBanco] = useState('');
   const [saving, setSaving] = useState(false);
@@ -22,6 +22,9 @@ export default function PaymentDialog({ open, onClose, motoboy, valorLiquido, di
         banco: forma === 'pix' ? banco : '',
         valor: valorLiquido,
         dias,
+        valor_bruto: detalhes?.bruto ?? valorLiquido,
+        desconto_consumo: detalhes?.consumoTotal ?? 0,
+        consumo_ids: detalhes?.consumoPendenteIds ?? [],
       });
       setResult(res.data);
     } catch (e) {
@@ -65,10 +68,43 @@ export default function PaymentDialog({ open, onClose, motoboy, valorLiquido, di
               <DialogTitle>Pagamento — {motoboy.nome}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-2">
-              <div className="bg-muted rounded-xl p-4 text-center">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Valor a pagar</p>
-                <p className="text-3xl font-bold text-foreground mt-1">{formatBRL(valorLiquido)}</p>
-                <p className="text-xs text-muted-foreground mt-1">{dias} dia(s) trabalhado(s)</p>
+              <div className="bg-muted rounded-xl p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Diárias ({dias} dia{dias !== 1 ? 's' : ''})</span>
+                  <span className="font-medium">{formatBRL(detalhes?.diarias ?? valorLiquido)}</span>
+                </div>
+                {(detalhes?.bonus ?? 0) > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Bônus</span>
+                    <span className="font-medium text-emerald-600">+{formatBRL(detalhes.bonus)}</span>
+                  </div>
+                )}
+                {(detalhes?.descontos ?? 0) > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Descontos</span>
+                    <span className="font-medium text-red-500">−{formatBRL(detalhes.descontos)}</span>
+                  </div>
+                )}
+                {(detalhes?.consumoTotal ?? 0) > 0 && (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Consumo do mês</span>
+                      <span className="font-medium text-orange-600">−{formatBRL(detalhes.consumoTotal)}</span>
+                    </div>
+                    <div className="max-h-28 overflow-y-auto rounded-lg bg-background/60 border border-border/40 px-3 py-2 space-y-1">
+                      {(detalhes.consumoItens || []).map((c) => (
+                        <div key={c.id} className="flex justify-between text-xs text-muted-foreground">
+                          <span className="truncate pr-2">{c.quantidade}x {c.produto}</span>
+                          <span className="shrink-0">{formatBRL(c.valor_total)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div className="border-t border-border/60 pt-2 flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground uppercase tracking-wide">Valor final a pagar</span>
+                  <span className="text-2xl font-bold text-foreground">{formatBRL(valorLiquido)}</span>
+                </div>
               </div>
               <div>
                 <Label>Forma de pagamento</Label>

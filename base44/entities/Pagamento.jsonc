@@ -32,6 +32,13 @@
     "valor": {
       "type": "number"
     },
+    "valor_bruto": {
+      "type": "number"
+    },
+    "desconto_consumo": {
+      "type": "number",
+      "default": 0
+    },
     "recibo": {
       "type": "string"
     },

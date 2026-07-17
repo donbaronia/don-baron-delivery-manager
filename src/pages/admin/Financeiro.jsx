@@ -7,28 +7,31 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '@/components/ui/table';
 import PaymentDialog from '@/components/PaymentDialog';
-import { formatBRL, getDiaria, todayISO } from '@/lib/donbaron';
-import { DollarSign } from 'lucide-react';
+import { formatBRL, getDiaria, consumoDoMes } from '@/lib/donbaron';
+import { DollarSign, Utensils } from 'lucide-react';
 
 export default function Financeiro() {
   const [motoboys, setMotoboys] = useState([]);
   const [checkIns, setCheckIns] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [consumos, setConsumos] = useState([]);
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [payTarget, setPayTarget] = useState(null);
 
   const load = async () => {
-    const [m, c, p, conf] = await Promise.all([
+    const [m, c, p, conf, cons] = await Promise.all([
       base44.entities.Motoboy.filter({ status: 'ativo' }),
       base44.entities.CheckIn.list('-data', 500),
       base44.entities.Pagamento.list('-data', 500),
       base44.entities.ConfigDiaria.list(),
+      base44.entities.ConsumoMotoboy.list('-data', 1000),
     ]);
     setMotoboys(m);
     setCheckIns(c);
     setPayments(p);
     setConfig(conf[0] || null);
+    setConsumos(cons);
     setLoading(false);
   };
 
@@ -48,8 +51,14 @@ export default function Financeiro() {
       const diarias = dias * getDiaria(m, config);
       const bonus = m.bonus || 0;
       const descontos = m.descontos || 0;
+
+      // ===== INTEGRAÇÃO COM CONSUMO =====
+      const consumoItens = consumoDoMes(consumos, m.id, currentMonth, currentYear);
+      const consumoTotal = consumoItens.reduce((s, c) => s + (c.valor_total || 0), 0);
+      const consumoPendenteIds = consumoItens.filter((c) => c.status === 'ativo').map((c) => c.id);
+
       const bruto = diarias + bonus;
-      const liquido = bruto - descontos;
+      const liquido = bruto - descontos - consumoTotal;
 
       const monthPayments = payments.filter((p) => {
         if (p.motoboy_id !== m.id) return false;
@@ -59,16 +68,17 @@ export default function Financeiro() {
       const totalPagoMes = monthPayments.reduce((s, p) => s + (p.valor || 0), 0);
       const status = totalPagoMes >= liquido ? 'pago' : 'pendente';
 
-      return { m, dias, diarias, bonus, descontos, bruto, liquido, totalPagoMes, status };
+      return { m, dias, diarias, bonus, descontos, consumoTotal, consumoItens, consumoPendenteIds, bruto, liquido, totalPagoMes, status };
     });
-  }, [motoboys, checkIns, payments, config]);
+  }, [motoboys, checkIns, payments, config, consumos]);
 
   const totals = rows.reduce((acc, r) => ({
     diarias: acc.diarias + r.diarias,
     bruto: acc.bruto + r.bruto,
+    consumo: acc.consumo + r.consumoTotal,
     liquido: acc.liquido + r.liquido,
     pago: acc.pago + r.totalPagoMes,
-  }), { diarias: 0, bruto: 0, liquido: 0, pago: 0 });
+  }), { diarias: 0, bruto: 0, consumo: 0, liquido: 0, pago: 0 });
 
   if (loading) {
     return (
@@ -87,10 +97,14 @@ export default function Financeiro() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="p-4 border-border/60 shadow-sm">
           <p className="text-xs text-muted-foreground uppercase tracking-wide">Folha bruta</p>
           <p className="text-xl font-bold mt-1">{formatBRL(totals.bruto)}</p>
+        </Card>
+        <Card className="p-4 border-border/60 shadow-sm">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Consumo (mês)</p>
+          <p className="text-xl font-bold text-orange-600 mt-1">−{formatBRL(totals.consumo)}</p>
         </Card>
         <Card className="p-4 border-border/60 shadow-sm">
           <p className="text-xs text-muted-foreground uppercase tracking-wide">Folha líquida</p>
@@ -115,6 +129,7 @@ export default function Financeiro() {
               <TableHead className="text-right hidden md:table-cell">Diárias</TableHead>
               <TableHead className="text-right hidden md:table-cell">Bônus</TableHead>
               <TableHead className="text-right hidden md:table-cell">Descontos</TableHead>
+              <TableHead className="text-right">Consumo</TableHead>
               <TableHead className="text-right">Bruto</TableHead>
               <TableHead className="text-right">Líquido</TableHead>
               <TableHead className="text-center">Status</TableHead>
@@ -123,7 +138,7 @@ export default function Financeiro() {
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
-              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum motoboy ativo.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Nenhum motoboy ativo.</TableCell></TableRow>
             ) : (
               rows.map((r) => (
                 <TableRow key={r.m.id}>
@@ -132,6 +147,14 @@ export default function Financeiro() {
                   <TableCell className="text-right hidden md:table-cell text-muted-foreground">{formatBRL(r.diarias)}</TableCell>
                   <TableCell className="text-right hidden md:table-cell text-emerald-600">{formatBRL(r.bonus)}</TableCell>
                   <TableCell className="text-right hidden md:table-cell text-red-500">{formatBRL(r.descontos)}</TableCell>
+                  <TableCell className="text-right text-orange-600">
+                    {r.consumoTotal > 0 ? (
+                      <span className="inline-flex items-center gap-1">
+                        <Utensils className="w-3 h-3" />
+                        −{formatBRL(r.consumoTotal)}
+                      </span>
+                    ) : '—'}
+                  </TableCell>
                   <TableCell className="text-right font-medium">{formatBRL(r.bruto)}</TableCell>
                   <TableCell className="text-right font-bold">{formatBRL(r.liquido)}</TableCell>
                   <TableCell className="text-center">
@@ -161,10 +184,19 @@ export default function Financeiro() {
       {payTarget && (
         <PaymentDialog
           open={!!payTarget}
-          onClose={() => setPayTarget(null)}
+          onClose={() => { setPayTarget(null); load(); }}
           motoboy={payTarget.m}
           valorLiquido={payTarget.liquido}
           dias={payTarget.dias}
+          detalhes={{
+            diarias: payTarget.diarias,
+            bonus: payTarget.bonus,
+            descontos: payTarget.descontos,
+            consumoTotal: payTarget.consumoTotal,
+            consumoItens: payTarget.consumoItens,
+            consumoPendenteIds: payTarget.consumoPendenteIds,
+            bruto: payTarget.bruto,
+          }}
         />
       )}
     </div>
