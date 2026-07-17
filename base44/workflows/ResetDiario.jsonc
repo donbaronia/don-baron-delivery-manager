@@ -1,0 +1,45 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 0 * * *",
+      "one_time_date": null,
+      "timezone": "America/Fortaleza",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "reset_diario",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "reset": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "gerarPinDiario",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Reset di\u00e1rio autom\u00e1tico",
+            "description": "Expira ciclo e gera novo PIN + tokens"
+          }
+        }
+      }
+    ]
+  },
+  "name": "Reset Di\u00e1rio",
+  "description": "\u00c0s 00:00, expira o ciclo operacional atual e gera um novo PIN di\u00e1rio com tokens individuais para todos os motoboys ativos."
+}

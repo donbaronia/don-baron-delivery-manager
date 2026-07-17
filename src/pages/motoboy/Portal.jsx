@@ -60,7 +60,12 @@ export default function Portal() {
     } catch (e) {
       const err = e.response?.data?.error || e.message;
       if (err === 'check_in_duplicado') {
-        setPinError('Você já fez check-in hoje.');
+        const hora = e.response?.data?.hora || '';
+        setPinError(`Você já realizou seu check-in hoje${hora ? ' às ' + hora : ''}.`);
+      } else if (err === 'check_in_fora_horario') {
+        setPinError('Check-in disponível apenas das 17:00 às 18:30.');
+      } else if (err === 'pin_nao_gerado') {
+        setPinError('PIN diário não gerado. Aguarde o administrador.');
       } else {
         setPinError(err);
       }
@@ -313,7 +318,7 @@ export default function Portal() {
       <Dialog open={pinOpen} onOpenChange={setPinOpen}>
         <DialogContent className="max-w-xs">
           <DialogHeader>
-            <DialogTitle className="text-center">Digite seu PIN</DialogTitle>
+            <DialogTitle className="text-center">Digite o PIN do dia</DialogTitle>
           </DialogHeader>
           <div className="py-6">
             <PinPad onComplete={handlePinComplete} error={pinError} loading={false} />

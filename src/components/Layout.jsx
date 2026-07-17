@@ -1,12 +1,14 @@
 import { Outlet, NavLink } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
-import { LayoutDashboard, Users, DollarSign, ScrollText, Settings, LogOut, Bike } from 'lucide-react';
+import { LayoutDashboard, Users, DollarSign, ScrollText, Settings, LogOut, Bike, ShieldCheck, Bot } from 'lucide-react';
 
 const navItems = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/admin/presenca', label: 'Presença', icon: ShieldCheck },
   { to: '/admin/cadastro', label: 'Cadastro', icon: Users },
   { to: '/admin/financeiro', label: 'Financeiro', icon: DollarSign },
   { to: '/admin/auditoria', label: 'Auditoria', icon: ScrollText },
+  { to: '/admin/agente-seguranca', label: 'Agente IA', icon: Bot },
   { to: '/admin/configuracoes', label: 'Configurações', icon: Settings },
 ];
 

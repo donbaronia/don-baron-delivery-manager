@@ -1,0 +1,35 @@
+{
+  "name": "CicloOperacional",
+  "type": "object",
+  "properties": {
+    "pin": {
+      "type": "string"
+    },
+    "data": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ativo",
+        "expirado"
+      ],
+      "default": "ativo"
+    },
+    "criado_por": {
+      "type": "string"
+    },
+    "criado_em": {
+      "type": "string"
+    },
+    "expirado_em": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "pin",
+    "data",
+    "status"
+  ]
+}

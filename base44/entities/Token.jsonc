@@ -1,0 +1,45 @@
+{
+  "name": "Token",
+  "type": "object",
+  "properties": {
+    "ciclo_id": {
+      "type": "string"
+    },
+    "motoboy_id": {
+      "type": "string"
+    },
+    "motoboy_nome": {
+      "type": "string"
+    },
+    "token": {
+      "type": "string"
+    },
+    "consumido": {
+      "type": "boolean",
+      "default": false
+    },
+    "consumido_em": {
+      "type": "string"
+    },
+    "consumido_ip": {
+      "type": "string"
+    },
+    "consumido_dispositivo": {
+      "type": "string"
+    },
+    "check_in_id": {
+      "type": "string"
+    },
+    "data": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "ciclo_id",
+    "motoboy_id",
+    "motoboy_nome",
+    "token",
+    "data"
+  ]
+}

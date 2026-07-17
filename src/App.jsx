@@ -18,6 +18,8 @@ import Cadastro from '@/pages/admin/Cadastro';
 import Financeiro from '@/pages/admin/Financeiro';
 import Auditoria from '@/pages/admin/Auditoria';
 import Configuracoes from '@/pages/admin/Configuracoes';
+import ControlePresenca from '@/pages/admin/ControlePresenca';
+import AgenteSeguranca from '@/pages/admin/AgenteSeguranca';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -57,6 +59,8 @@ const AuthenticatedApp = () => {
           <Route path="/admin/financeiro" element={<Financeiro />} />
           <Route path="/admin/auditoria" element={<Auditoria />} />
           <Route path="/admin/configuracoes" element={<Configuracoes />} />
+          <Route path="/admin/presenca" element={<ControlePresenca />} />
+          <Route path="/admin/agente-seguranca" element={<AgenteSeguranca />} />
         </Route>
       </Route>
       <Route path="*" element={<PageNotFound />} />
