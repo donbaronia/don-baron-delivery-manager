@@ -33,27 +33,13 @@ export default function MotoboyForm({ open, onClose, onSaved, motoboy }) {
       });
     }
     setInviteError('');
-    setSenha('');
   }, [motoboy, open]);
 
-  const [senha, setSenha] = useState('');
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const handleSave = async () => {
     if (!form.nome || !form.pin) {
       setInviteError('Preencha nome e PIN pessoal.');
-      return;
-    }
-    if (senha && !form.email) {
-      setInviteError('Para definir a senha do portal, informe também o email (é o login do motoboy).');
-      return;
-    }
-    if (senha && senha.length < 4) {
-      setInviteError('A senha do portal deve ter pelo menos 4 caracteres.');
-      return;
-    }
-    if (!motoboy && form.email && !senha) {
-      setInviteError('Defina a senha do portal para este motoboy (é com ela que ele vai entrar).');
       return;
     }
     if (form.pin.length !== 5) {
@@ -66,10 +52,11 @@ export default function MotoboyForm({ open, onClose, onSaved, motoboy }) {
     try {
       const dados = { ...form };
       if (dados.email) dados.email = dados.email.trim().toLowerCase();
-      if (senha) {
+      // Senha padrão do portal: 12345 (definida automaticamente no cadastro)
+      if (dados.email && !motoboy?.senha_hash) {
         const salt = gerarSalt();
         dados.senha_salt = salt;
-        dados.senha_hash = await hashSenha(salt, senha);
+        dados.senha_hash = await hashSenha(salt, '12345');
       }
       if (motoboy) {
         await base44.entities.Motoboy.update(motoboy.id, dados);
@@ -107,12 +94,7 @@ export default function MotoboyForm({ open, onClose, onSaved, motoboy }) {
             <div>
               <Label>Email *</Label>
               <Input value={form.email || ''} onChange={(e) => set('email', e.target.value)} placeholder="email de login do motoboy" type="email" />
-              <p className="text-[11px] text-muted-foreground mt-1">É o login do motoboy no portal</p>
-            </div>
-            <div>
-              <Label>Senha do portal {motoboy ? '(deixe em branco para manter a atual)' : ''}</Label>
-              <Input value={senha} onChange={(e) => setSenha(e.target.value)} placeholder={motoboy ? '••••••' : 'Defina a senha de acesso'} type="text" autoComplete="off" />
-              <p className="text-[11px] text-muted-foreground mt-1">Você define — o motoboy entra com email + esta senha</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Login do portal • senha padrão: <strong>12345</strong></p>
             </div>
             <div>
               <Label>Tipo da chave PIX</Label>
