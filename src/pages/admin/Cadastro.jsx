@@ -14,7 +14,7 @@ import MotoboyForm from '@/components/MotoboyForm';
 import CheckInManualDialog from '@/components/CheckInManualDialog';
 import BloqueioDialog from '@/components/BloqueioDialog';
 import ExcluirDialog from '@/components/ExcluirDialog';
-import { logAuditoria, formatDate, todayISO } from '@/lib/donbaron';
+import { logAuditoria, formatDate, todayISO, cicloSemanal, labelCiclo } from '@/lib/donbaron';
 import {
   Plus, MoreVertical, Pencil, Ban, Check, Search, Clock, ShieldOff, ShieldCheck, Trash2, Filter,
 } from 'lucide-react';
@@ -40,6 +40,7 @@ export default function Cadastro() {
   const [motoboys, setMotoboys] = useState([]);
   const [checkIns, setCheckIns] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pagamentos, setPagamentos] = useState([]);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState('');
@@ -51,11 +52,26 @@ export default function Cadastro() {
   const load = async () => {
     const list = await base44.entities.Motoboy.list('-created_date', 200);
     const today = todayISO();
-    const todayCheckIns = await base44.entities.CheckIn.filter({ data: today, status: 'sucesso' }, '-hora', 200);
+    const [todayCheckIns, pags] = await Promise.all([
+      base44.entities.CheckIn.filter({ data: today, status: 'sucesso' }, '-hora', 200),
+      base44.entities.Pagamento.list('-data', 300),
+    ]);
+    // Ordem alfabética por nome
+    list.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' }));
     setMotoboys(list);
     setCheckIns(todayCheckIns);
+    setPagamentos(pags);
     setLoading(false);
   };
+
+  // Semana fechada (qua–ter anterior) — é a que se paga na quarta
+  const cicloPagto = cicloSemanal(-1);
+  const pagouSemana = (motoboyId) =>
+    pagamentos.some((p) => {
+      if (p.motoboy_id !== motoboyId) return false;
+      if (p.periodo_inicio) return p.periodo_inicio === cicloPagto.startISO;
+      return p.data >= cicloPagto.startISO; // pagamentos antigos sem período
+    });
 
   useEffect(() => { load(); }, []);
 
@@ -158,14 +174,15 @@ export default function Cadastro() {
               <TableHead className="hidden lg:table-cell">Banco</TableHead>
               <TableHead className="hidden md:table-cell">Entrada</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="text-center" title="Pagamento da semana fechada">Pagto</TableHead>
               <TableHead className="w-[60px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum motoboy encontrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum motoboy encontrado.</TableCell></TableRow>
             ) : (
               filtered.map((m) => (
                 <TableRow key={m.id} className={m.status === 'bloqueado' ? 'bg-red-50/30' : ''}>
@@ -190,6 +207,14 @@ export default function Cadastro() {
                     <Badge variant="secondary" className={STATUS_BADGES[m.status]?.className || ''}>
                       {STATUS_BADGES[m.status]?.label || m.status}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span
+                      title={pagouSemana(m.id)
+                        ? `Semana ${labelCiclo(cicloPagto)} paga`
+                        : `Semana ${labelCiclo(cicloPagto)} pendente`}
+                      className={`inline-block w-3 h-3 rounded-full ${pagouSemana(m.id) ? 'bg-emerald-500' : 'bg-amber-400'}`}
+                    />
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>

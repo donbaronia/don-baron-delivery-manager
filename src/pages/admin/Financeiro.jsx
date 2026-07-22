@@ -43,7 +43,9 @@ export default function Financeiro() {
   const ciclo = useMemo(() => cicloSemanal(weekOffset), [weekOffset]);
 
   const rows = useMemo(() => {
-    return motoboys.map((m) => {
+    const ordenados = [...motoboys].sort((a, b) =>
+      (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' }));
+    return ordenados.map((m) => {
       const weekCheckIns = checkIns.filter(
         (c) => c.motoboy_id === m.id && c.status === 'sucesso' && dentroDoCiclo(c.data, ciclo)
       );
