@@ -8,6 +8,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { base44 } from '@/api/base44Client';
 import { logAuditoria, BANCOS, TIPOS_PIX, todayISO } from '@/lib/donbaron';
 
+// Hash da senha do portal: SHA-256(salt + senha) — nunca guardamos a senha em texto
+async function hashSenha(salt, senha) {
+  const data = new TextEncoder().encode(salt + senha);
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+const gerarSalt = () =>
+  Array.from(crypto.getRandomValues(new Uint8Array(16))).map((b) => b.toString(16).padStart(2, '0')).join('');
+
 export default function MotoboyForm({ open, onClose, onSaved, motoboy }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
@@ -24,13 +33,27 @@ export default function MotoboyForm({ open, onClose, onSaved, motoboy }) {
       });
     }
     setInviteError('');
+    setSenha('');
   }, [motoboy, open]);
 
+  const [senha, setSenha] = useState('');
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const handleSave = async () => {
     if (!form.nome || !form.pin) {
       setInviteError('Preencha nome e PIN pessoal.');
+      return;
+    }
+    if (senha && !form.email) {
+      setInviteError('Para definir a senha do portal, informe também o email (é o login do motoboy).');
+      return;
+    }
+    if (senha && senha.length < 4) {
+      setInviteError('A senha do portal deve ter pelo menos 4 caracteres.');
+      return;
+    }
+    if (!motoboy && form.email && !senha) {
+      setInviteError('Defina a senha do portal para este motoboy (é com ela que ele vai entrar).');
       return;
     }
     if (form.pin.length !== 5) {
@@ -41,20 +64,20 @@ export default function MotoboyForm({ open, onClose, onSaved, motoboy }) {
     setInviteError('');
     let inviteFailed = false;
     try {
+      const dados = { ...form };
+      if (dados.email) dados.email = dados.email.trim().toLowerCase();
+      if (senha) {
+        const salt = gerarSalt();
+        dados.senha_salt = salt;
+        dados.senha_hash = await hashSenha(salt, senha);
+      }
       if (motoboy) {
-        await base44.entities.Motoboy.update(motoboy.id, form);
+        await base44.entities.Motoboy.update(motoboy.id, dados);
         await logAuditoria('edicao_cadastro', `Motoboy ${form.nome} editado`, motoboy.id);
       } else {
-        const created = await base44.entities.Motoboy.create(form);
+        const created = await base44.entities.Motoboy.create(dados);
         await logAuditoria('novo_cadastro', `Novo motoboy cadastrado: ${form.nome}`, created.id);
-        if (form.email) {
-          try {
-            await base44.users.inviteUser(form.email, 'motoboy');
-          } catch (e) {
-            inviteFailed = true;
-            setInviteError('Motoboy salvo, mas o convite por email falhou (pode já existir). O usuário precisará ser convidado manualmente.');
-          }
-        }
+
       }
       onSaved();
       if (!inviteFailed) onClose();
@@ -83,8 +106,13 @@ export default function MotoboyForm({ open, onClose, onSaved, motoboy }) {
             </div>
             <div>
               <Label>Email *</Label>
-              <Input value={form.email || ''} onChange={(e) => set('email', e.target.value)} placeholder="Opcional" type="email" />
-              <p className="text-[11px] text-muted-foreground mt-1">Opcional — o motoboy pode criar a própria conta e vincular com o PIN pessoal</p>
+              <Input value={form.email || ''} onChange={(e) => set('email', e.target.value)} placeholder="email de login do motoboy" type="email" />
+              <p className="text-[11px] text-muted-foreground mt-1">É o login do motoboy no portal</p>
+            </div>
+            <div>
+              <Label>Senha do portal {motoboy ? '(deixe em branco para manter a atual)' : ''}</Label>
+              <Input value={senha} onChange={(e) => setSenha(e.target.value)} placeholder={motoboy ? '••••••' : 'Defina a senha de acesso'} type="text" autoComplete="off" />
+              <p className="text-[11px] text-muted-foreground mt-1">Você define — o motoboy entra com email + esta senha</p>
             </div>
             <div>
               <Label>Tipo da chave PIX</Label>

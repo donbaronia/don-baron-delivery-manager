@@ -14,6 +14,12 @@
     "telefone": {
       "type": "string"
     },
+    "senha_hash": {
+      "type": "string"
+    },
+    "senha_salt": {
+      "type": "string"
+    },
     "email": {
       "type": "string"
     },

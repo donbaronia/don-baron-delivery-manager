@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -20,11 +19,12 @@ const MENU = [
 ];
 
 export default function Portal() {
-  const { user, logout } = useAuth();
+  const [portalToken, setPortalToken] = useState(() => localStorage.getItem('db_portal_token') || '');
   const [motoboy, setMotoboy] = useState(null);
-  const [vincPin, setVincPin] = useState('');
-  const [vincError, setVincError] = useState('');
-  const [vincLoading, setVincLoading] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginSenha, setLoginSenha] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pinOpen, setPinOpen] = useState(false);
   const [pinError, setPinError] = useState('');
@@ -34,27 +34,52 @@ export default function Portal() {
   const [consumos, setConsumos] = useState([]);
   const [config, setConfig] = useState(null);
 
+  const sair = () => {
+    localStorage.removeItem('db_portal_token');
+    setPortalToken('');
+    setMotoboy(null);
+  };
+
   const loadMotoboy = async () => {
-    if (!user?.email) return;
-    const list = await base44.entities.Motoboy.filter({ email: user.email });
-    if (list.length > 0) {
-      setMotoboy(list[0]);
-      const [ci, pay, cons] = await Promise.all([
-        base44.entities.CheckIn.filter({ motoboy_id: list[0].id }, '-data', 50),
-        base44.entities.Pagamento.filter({ motoboy_id: list[0].id }, '-data', 50),
-        base44.entities.ConsumoMotoboy.filter({ motoboy_id: list[0].id }, '-data', 50),
-      ]);
-      setHistory({ checkIns: ci, payments: pay });
-      setConsumos(cons);
-      try {
-        const conf = await base44.entities.ConfigDiaria.list();
-        setConfig(conf[0] || null);
-      } catch (e) { /* sem permissão — usa diária do cadastro */ }
+    if (!portalToken) { setLoading(false); return; }
+    try {
+      const res = await base44.functions.invoke('portalMotoboy', { action: 'dados', token: portalToken });
+      const data = res?.data || res;
+      if (data?.success) {
+        setMotoboy(data.motoboy);
+        setHistory({ checkIns: data.checkIns || [], payments: data.pagamentos || [] });
+        setConsumos(data.consumos || []);
+        setConfig(data.config || null);
+      } else {
+        sair();
+      }
+    } catch (e) {
+      sair();
     }
     setLoading(false);
   };
 
-  useEffect(() => { loadMotoboy(); }, [user]);
+  const entrar = async () => {
+    setLoginError('');
+    setLoginLoading(true);
+    try {
+      const res = await base44.functions.invoke('loginMotoboy', { email: loginEmail, senha: loginSenha });
+      const data = res?.data || res;
+      if (data?.success && data.token) {
+        localStorage.setItem('db_portal_token', data.token);
+        setLoading(true);
+        setPortalToken(data.token);
+      } else {
+        setLoginError(data?.error || 'Email ou senha incorretos.');
+      }
+    } catch (e) {
+      setLoginError(e.response?.data?.error || 'Email ou senha incorretos.');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  useEffect(() => { loadMotoboy(); }, [portalToken]);
 
   const todayCheckIn = history.checkIns.find((c) => c.data === todayISO() && c.status === 'sucesso');
 
@@ -69,7 +94,9 @@ export default function Portal() {
   const handlePinComplete = async (pin) => {
     setPinError('');
     try {
-      const res = await base44.functions.invoke('checkInMotoboy', {
+      const res = await base44.functions.invoke('portalMotoboy', {
+        action: 'checkin',
+        token: portalToken,
         pin,
         dispositivo: navigator.userAgent.includes('Mobile') ? 'mobile' : 'web',
       });
@@ -103,44 +130,38 @@ export default function Portal() {
     );
   }
 
-  if (!motoboy) {
-    const vincular = async () => {
-      setVincError('');
-      setVincLoading(true);
-      try {
-        const res = await base44.functions.invoke('vincularCadastro', { pin: vincPin });
-        const data = res?.data || res;
-        if (data?.success) {
-          await loadMotoboy();
-        } else {
-          setVincError(data?.error || 'Não foi possível vincular.');
-        }
-      } catch (e) {
-        setVincError(e.response?.data?.error || e.message || 'Não foi possível vincular.');
-      } finally {
-        setVincLoading(false);
-      }
-    };
+  if (!portalToken || !motoboy) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-background gap-4 px-6">
-        <div className="w-full max-w-sm space-y-4 text-center">
-          <h1 className="text-xl font-heading font-bold">Vincular seu cadastro</h1>
-          <p className="text-sm text-muted-foreground">
-            Sua conta ainda não está ligada a um cadastro de motoboy.
-            Digite o <strong>PIN pessoal de 5 dígitos</strong> que a administração te passou.
-          </p>
-          <Input
-            value={vincPin}
-            onChange={(e) => setVincPin(e.target.value.replace(/\D/g, '').slice(0, 5))}
-            placeholder="•••••"
-            inputMode="numeric"
-            className="text-center text-2xl tracking-[0.5em] h-14"
-          />
-          {vincError && <p className="text-sm text-red-600">{vincError}</p>}
-          <Button className="w-full" onClick={vincular} disabled={vincLoading || vincPin.length !== 5}>
-            {vincLoading ? 'Vinculando...' : 'Vincular'}
+        <div className="w-full max-w-sm space-y-4">
+          <div className="text-center space-y-2">
+            <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto">
+              <Bike className="w-7 h-7 text-accent" />
+            </div>
+            <h1 className="text-xl font-heading font-bold">Portal do Motoboy</h1>
+            <p className="text-sm text-muted-foreground">Entre com o email e a senha que a administração te passou.</p>
+          </div>
+          <div className="space-y-3">
+            <Input
+              value={loginEmail}
+              onChange={(e) => setLoginEmail(e.target.value)}
+              placeholder="Seu email"
+              type="email"
+              autoComplete="username"
+            />
+            <Input
+              value={loginSenha}
+              onChange={(e) => setLoginSenha(e.target.value)}
+              placeholder="Sua senha"
+              type="password"
+              autoComplete="current-password"
+              onKeyDown={(e) => { if (e.key === 'Enter' && loginEmail && loginSenha) entrar(); }}
+            />
+          </div>
+          {loginError && <p className="text-sm text-red-600 text-center">{loginError}</p>}
+          <Button className="w-full h-11" onClick={entrar} disabled={loginLoading || !loginEmail || !loginSenha}>
+            {loginLoading ? 'Entrando...' : 'Entrar'}
           </Button>
-          <Button variant="ghost" className="w-full" onClick={() => logout()}>Sair</Button>
         </div>
       </div>
     );
@@ -156,7 +177,7 @@ export default function Portal() {
           <h1 className="text-xl font-bold text-foreground">Acesso bloqueado</h1>
           <p className="text-muted-foreground mt-2 max-w-xs">Seu acesso foi bloqueado. Procure a administração.</p>
         </div>
-        <Button variant="outline" onClick={() => logout()}>Sair</Button>
+        <Button variant="outline" onClick={() => sair()}>Sair</Button>
       </div>
     );
   }
@@ -352,7 +373,7 @@ export default function Portal() {
             </div>
             <span className="font-bold text-sm">DON BARON</span>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => logout()} className="text-muted-foreground gap-1.5">
+          <Button variant="ghost" size="sm" onClick={() => sair()} className="text-muted-foreground gap-1.5">
             <LogOut className="w-4 h-4" />
             Sair
           </Button>
