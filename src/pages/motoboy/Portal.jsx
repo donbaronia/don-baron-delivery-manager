@@ -351,7 +351,7 @@ export default function Portal() {
                   </span>
                 </div>
                 <div><p className="text-xs text-muted-foreground">Tempo de empresa</p><p className="font-medium">
-                  {motoboy.data_entrada ? Math.floor((Date.now() - new Date(motoboy.data_entrada).getTime()) / 86400000) + ' dias' : '—'}
+                  {motoboy.data_entrada ? Math.floor((Date.now() - new Date(motoboy.data_entrada + 'T00:00:00').getTime()) / 86400000) + ' dias' : '—'}
                 </p></div>
               </div>
             </div>
