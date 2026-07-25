@@ -133,8 +133,65 @@ export default function Configuracoes() {
         </div>
       </Card>
 
+      <CorrigirHorarios />
+
       <ZonaPerigo />
     </div>
+  );
+}
+
+// ===== CORREÇÃO DE HORÁRIOS (bug UTC antigo) =====
+function CorrigirHorarios() {
+  const hoje = new Date();
+  const hojeISO = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+  const [data, setData] = useState(hojeISO);
+  const [rodando, setRodando] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [detalhes, setDetalhes] = useState([]);
+
+  const corrigir = async () => {
+    setMsg('');
+    setDetalhes([]);
+    setRodando(true);
+    try {
+      const res = await base44.functions.invoke('corrigirHorarios', { data });
+      const d = res?.data || res;
+      if (d?.success) {
+        setMsg(d.corrigidos > 0 ? `${d.corrigidos} check-in(s) corrigido(s):` : 'Nenhum horário errado nessa data — tudo certo.');
+        setDetalhes(d.detalhes || []);
+      } else {
+        setMsg(d?.error || 'Falha na correção.');
+      }
+    } catch (e) {
+      setMsg(e?.message || 'Falha na correção.');
+    } finally {
+      setRodando(false);
+    }
+  };
+
+  return (
+    <Card className="p-6 border-border/60 shadow-sm space-y-3">
+      <h2 className="text-lg font-heading font-bold">Corrigir horários de check-in</h2>
+      <p className="text-sm text-muted-foreground">
+        Conserta check-ins gravados com 3 horas a mais (bug de fuso da versão antiga).
+        Só ajusta registros com hora depois das 19:00 — os horários legítimos não são tocados.
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <Label>Data</Label>
+          <Input type="date" value={data} onChange={(e) => setData(e.target.value)} className="w-44" />
+        </div>
+        <Button onClick={corrigir} disabled={rodando} className="gap-2">
+          {rodando ? 'Corrigindo...' : 'Corrigir horários'}
+        </Button>
+      </div>
+      {msg && <p className="text-sm font-medium">{msg}</p>}
+      {detalhes.length > 0 && (
+        <div className="text-xs text-muted-foreground bg-muted rounded-lg p-3 space-y-0.5 max-h-40 overflow-y-auto">
+          {detalhes.map((d, i) => <p key={i}>{d}</p>)}
+        </div>
+      )}
+    </Card>
   );
 }
 
