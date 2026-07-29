@@ -8,7 +8,9 @@ import {
 } from '@/components/ui/table';
 import PaymentDialog from '@/components/PaymentDialog';
 import { formatBRL, getDiaria, cicloSemanal, dentroDoCiclo, labelCiclo, consumoDoCiclo } from '@/lib/donbaron';
-import { DollarSign, Utensils, ChevronLeft, ChevronRight } from 'lucide-react';
+import { DollarSign, Utensils, ChevronLeft, ChevronRight, Copy, Check, QrCode } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Separator } from '@/components/ui/separator';
 
 export default function Financeiro() {
   const [motoboys, setMotoboys] = useState([]);
@@ -18,6 +20,39 @@ export default function Financeiro() {
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [payTarget, setPayTarget] = useState(null);
+  const [copiado, setCopiado] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
+
+  const copiarPix = (chave) => {
+    navigator.clipboard.writeText(chave).catch(() => {});
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  };
+
+  const confirmarPagamento = async () => {
+    if (!payTarget || confirmando) return;
+    setConfirmando(true);
+    try {
+      await base44.functions.invoke('registrarPagamento', {
+        motoboy_id: payTarget.m.id,
+        forma: 'pix',
+        banco: payTarget.m.banco || '',
+        valor: payTarget.liquido,
+        dias: payTarget.dias,
+        valor_bruto: payTarget.bruto,
+        desconto_consumo: payTarget.consumoTotal,
+        consumo_ids: payTarget.consumoPendenteIds,
+        periodo_inicio: ciclo.startISO,
+        periodo_fim: ciclo.endISO,
+      });
+      setPayTarget(null);
+      load();
+    } catch (e) {
+      alert('Erro ao registrar pagamento: ' + (e?.message || 'tente novamente'));
+    } finally {
+      setConfirmando(false);
+    }
+  };
   // 0 = semana em andamento (visão padrão no dia a dia).
   // Na QUARTA (dia de pagamento) abre direto na semana fechada (-1).
   const [weekOffset, setWeekOffset] = useState(() => (new Date().getDay() === 3 ? -1 : 0));
@@ -197,10 +232,10 @@ export default function Financeiro() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setPayTarget(r)}
                       disabled={r.liquido <= 0 || r.status === 'pago' || weekOffset === 0}
                       title={weekOffset === 0 ? 'A semana em andamento só fecha na terça' : undefined}
                       className="gap-1.5"
+                      onClick={() => { setCopiado(false); setPayTarget(r); }}
                     >
                       <DollarSign className="w-3.5 h-3.5" />
                       Pagar
@@ -213,27 +248,108 @@ export default function Financeiro() {
         </Table>
       </Card>
 
-      {payTarget && (
-        <PaymentDialog
-          open={!!payTarget}
-          onClose={() => { setPayTarget(null); load(); }}
-          motoboy={payTarget.m}
-          valorLiquido={payTarget.liquido}
-          dias={payTarget.dias}
-          detalhes={{
-            diarias: payTarget.diarias,
-            bonus: payTarget.bonus,
-            descontos: payTarget.descontos,
-            consumoTotal: payTarget.consumoTotal,
-            consumoItens: payTarget.consumoItens,
-            consumoPendenteIds: payTarget.consumoPendenteIds,
-            bruto: payTarget.bruto,
-            periodoInicio: ciclo.startISO,
-            periodoFim: ciclo.endISO,
-            periodoLabel: labelCiclo(ciclo),
-          }}
-        />
-      )}
+      <Sheet open={!!payTarget} onOpenChange={(o) => { if (!o) { setPayTarget(null); setCopiado(false); } }}>
+        <SheetContent side="right" className="w-full sm:max-w-md flex flex-col gap-0 p-0">
+          {payTarget && (() => {
+            const m = payTarget.m;
+            const chave = m.pix || '';
+            const tipo = m.tipo_chave_pix || 'pix';
+            return (
+              <>
+                <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/60">
+                  <SheetTitle className="text-xl">{m.nome}</SheetTitle>
+                  <p className="text-sm text-muted-foreground">{payTarget.dias} dia(s) • {labelCiclo(ciclo)}</p>
+                </SheetHeader>
+
+                <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+                  {/* PIX em destaque */}
+                  <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-5 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <QrCode className="w-5 h-5 text-emerald-600" />
+                      <span className="text-sm font-semibold text-emerald-700 uppercase tracking-wide">Chave PIX</span>
+                      <span className="ml-auto text-xs text-emerald-600 bg-emerald-100 rounded-full px-2 py-0.5">{tipo}</span>
+                    </div>
+                    {chave ? (
+                      <>
+                        <p className="text-lg font-mono font-bold text-emerald-900 break-all">{chave}</p>
+                        <button
+                          onClick={() => copiarPix(chave)}
+                          className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-3 transition-colors"
+                        >
+                          {copiado ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                          {copiado ? 'Copiado!' : 'Copiar chave PIX'}
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2">⚠️ PIX não cadastrado — atualize o cadastro deste motoboy.</p>
+                    )}
+                  </div>
+
+                  {/* Extrato */}
+                  <div className="rounded-xl border border-border/60 overflow-hidden">
+                    <div className="bg-muted/40 px-4 py-2.5">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Extrato da semana</p>
+                    </div>
+                    <div className="px-4 py-3 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Diárias ({payTarget.dias} dia{payTarget.dias !== 1 ? 's' : ''})</span>
+                        <span>{formatBRL(payTarget.diarias)}</span>
+                      </div>
+                      {(payTarget.bonus || 0) > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Bônus</span>
+                          <span className="text-emerald-600">+{formatBRL(payTarget.bonus)}</span>
+                        </div>
+                      )}
+                      {(payTarget.descontos || 0) > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Descontos</span>
+                          <span className="text-red-500">−{formatBRL(payTarget.descontos)}</span>
+                        </div>
+                      )}
+                      {(payTarget.consumoTotal || 0) > 0 && (
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Consumo</span>
+                            <span className="text-orange-600">−{formatBRL(payTarget.consumoTotal)}</span>
+                          </div>
+                          <div className="rounded-lg bg-muted/60 px-3 py-2 space-y-1">
+                            {(payTarget.consumoItens || []).map((c) => (
+                              <div key={c.id} className="flex justify-between text-xs text-muted-foreground">
+                                <span className="truncate pr-2">{c.quantidade}x {c.produto}</span>
+                                <span className="shrink-0">{formatBRL(c.valor_total)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                      <Separator />
+                      <div className="flex justify-between items-center pt-1">
+                        <span className="font-semibold">Total a pagar</span>
+                        <span className="text-2xl font-bold text-foreground">{formatBRL(payTarget.liquido)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Botão confirmar fixo no rodapé */}
+                <div className="px-6 py-4 border-t border-border/60 bg-background">
+                  <button
+                    onClick={confirmarPagamento}
+                    disabled={confirmando}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-foreground hover:bg-foreground/90 text-background text-base font-bold py-4 transition-colors disabled:opacity-50"
+                  >
+                    <DollarSign className="w-5 h-5" />
+                    {confirmando ? 'Registrando...' : `Confirmar pagamento de ${formatBRL(payTarget.liquido)}`}
+                  </button>
+                </div>
+              </>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
