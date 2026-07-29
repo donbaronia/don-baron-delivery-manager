@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '@/components/ui/table';
-import PaymentDialog from '@/components/PaymentDialog';
 import { formatBRL, getDiaria, cicloSemanal, dentroDoCiclo, labelCiclo, consumoDoCiclo } from '@/lib/donbaron';
 import { DollarSign, Utensils, ChevronLeft, ChevronRight, Copy, Check, QrCode } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
