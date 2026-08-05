@@ -24,12 +24,28 @@ export default function Financeiro() {
   const [confirmando, setConfirmando] = useState(false);
 
   // ===== Gerador de Payload PIX (padrão EMV – Banco Central) =====
-  const pixPayload = (chave, valor, nome = 'Don Baron', cidade = 'Teresina') => {
+  // Normaliza a chave PIX conforme o tipo (padrão Banco Central)
+  const normalizarChave = (chave, tipo) => {
+    const raw = String(chave || '').trim();
+    if (tipo === 'cpf' || tipo === 'cnpj') return raw.replace(/\D/g, '');
+    if (tipo === 'telefone' || tipo === 'phone') {
+      const nums = raw.replace(/\D/g, '');
+      // Precisa ter +55 na frente
+      if (raw.startsWith('+')) return raw.replace(/[^+\d]/g, '');
+      return '+55' + nums;
+    }
+    if (tipo === 'email') return raw.toLowerCase();
+    // chave aleatória ou outros: retorna como está
+    return raw;
+  };
+
+  const pixPayload = (chave, valor, nome = 'Don Baron', cidade = 'Teresina', tipo = 'email') => {
     const fmt = (id, val) => {
       const v = String(val);
       return `${id}${String(v.length).padStart(2, '0')}${v}`;
     };
-    const merchantAccountInfo = fmt('00', 'BR.GOV.BCB.PIX') + fmt('01', chave);
+    const chaveFmt = normalizarChave(chave, tipo);
+    const merchantAccountInfo = fmt('00', 'BR.GOV.BCB.PIX') + fmt('01', chaveFmt);
     const valorStr = valor.toFixed(2);
     const nomeStr = nome.substring(0, 25).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9 ]/g, '').toUpperCase();
     const cidadeStr = cidade.substring(0, 15).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9 ]/g, '').toUpperCase();
@@ -314,7 +330,7 @@ export default function Financeiro() {
                         <div className="flex flex-col items-center gap-2">
                           <div className="bg-white rounded-xl p-3 shadow-sm border border-emerald-100">
                             <QRCodeSVG
-                              value={pixPayload(chave, payTarget.liquido, m.nome)}
+                              value={pixPayload(chave, payTarget.liquido, m.nome, 'Teresina', tipo)}
                               size={208}
                               bgColor="#ffffff"
                               fgColor="#000000"
