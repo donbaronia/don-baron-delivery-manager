@@ -9,7 +9,7 @@ import {
 import { formatBRL, getDiaria, cicloSemanal, dentroDoCiclo, labelCiclo, consumoDoCiclo } from '@/lib/donbaron';
 import { DollarSign, Utensils, ChevronLeft, ChevronRight, Copy, Check } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import QRCode from 'qrcode';
+import { QRCodeSVG } from 'qrcode.react';
 import { Separator } from '@/components/ui/separator';
 
 export default function Financeiro() {
@@ -21,7 +21,6 @@ export default function Financeiro() {
   const [loading, setLoading] = useState(true);
   const [payTarget, setPayTarget] = useState(null);
   const [copiado, setCopiado] = useState(false);
-  const [qrDataUrl, setQrDataUrl] = useState('');
   const [confirmando, setConfirmando] = useState(false);
 
   // ===== Gerador de Payload PIX (padrão EMV – Banco Central) =====
@@ -68,14 +67,6 @@ export default function Financeiro() {
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2000);
   };
-
-  useEffect(() => {
-    if (payTarget?.m?.pix && payTarget?.liquido) {
-      gerarQR(payTarget.m.pix, payTarget.liquido, payTarget.m.nome);
-    } else {
-      setQrDataUrl('');
-    }
-  }, [payTarget]);
 
   const confirmarPagamento = async () => {
     if (!payTarget || confirmando) return;
@@ -320,16 +311,18 @@ export default function Financeiro() {
                     {chave ? (
                       <>
                         {/* QR Code */}
-                        {qrDataUrl ? (
-                          <div className="flex flex-col items-center gap-2">
-                            <div className="bg-white rounded-xl p-3 shadow-sm border border-emerald-100">
-                              <img src={qrDataUrl} alt="QR Code PIX" className="w-52 h-52" />
-                            </div>
-                            <p className="text-xs text-emerald-700 font-medium">Valor já incluído: <strong>{formatBRL(payTarget.liquido)}</strong></p>
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="bg-white rounded-xl p-3 shadow-sm border border-emerald-100">
+                            <QRCodeSVG
+                              value={pixPayload(chave, payTarget.liquido, m.nome)}
+                              size={208}
+                              bgColor="#ffffff"
+                              fgColor="#000000"
+                              level="M"
+                            />
                           </div>
-                        ) : (
-                          <div className="w-52 h-52 mx-auto bg-white rounded-xl animate-pulse" />
-                        )}
+                          <p className="text-xs text-emerald-700 font-medium">Valor já incluído: <strong>{formatBRL(payTarget.liquido)}</strong></p>
+                        </div>
                         {/* Chave + copiar */}
                         <div className="bg-white rounded-xl border border-emerald-100 px-3 py-2 flex items-center gap-2">
                           <p className="flex-1 text-sm font-mono text-emerald-900 break-all">{chave}</p>
