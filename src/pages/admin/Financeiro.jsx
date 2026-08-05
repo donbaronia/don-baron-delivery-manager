@@ -7,8 +7,9 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '@/components/ui/table';
 import { formatBRL, getDiaria, cicloSemanal, dentroDoCiclo, labelCiclo, consumoDoCiclo } from '@/lib/donbaron';
-import { DollarSign, Utensils, ChevronLeft, ChevronRight, Copy, Check, QrCode } from 'lucide-react';
+import { DollarSign, Utensils, ChevronLeft, ChevronRight, Copy, Check } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import QRCode from 'qrcode';
 import { Separator } from '@/components/ui/separator';
 
 export default function Financeiro() {
@@ -20,13 +21,61 @@ export default function Financeiro() {
   const [loading, setLoading] = useState(true);
   const [payTarget, setPayTarget] = useState(null);
   const [copiado, setCopiado] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState('');
   const [confirmando, setConfirmando] = useState(false);
+
+  // ===== Gerador de Payload PIX (padrão EMV – Banco Central) =====
+  const pixPayload = (chave, valor, nome = 'Don Baron', cidade = 'Teresina') => {
+    const fmt = (id, val) => {
+      const v = String(val);
+      return `${id}${String(v.length).padStart(2, '0')}${v}`;
+    };
+    const merchantAccountInfo = fmt('00', 'BR.GOV.BCB.PIX') + fmt('01', chave);
+    const valorStr = valor.toFixed(2);
+    const nomeStr = nome.substring(0, 25).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9 ]/g, '').toUpperCase();
+    const cidadeStr = cidade.substring(0, 15).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9 ]/g, '').toUpperCase();
+    const raw =
+      fmt('00', '01') +                         // Payload version
+      fmt('26', merchantAccountInfo) +            // Merchant account info
+      fmt('52', '0000') +                        // MCC
+      fmt('53', '986') +                         // BRL
+      fmt('54', valorStr) +                      // Valor
+      fmt('58', 'BR') +                          // País
+      fmt('59', nomeStr) +                       // Nome
+      fmt('60', cidadeStr) +                     // Cidade
+      fmt('62', fmt('05', '***')) +              // Additional data
+      '6304';                                    // CRC placeholder
+    // CRC16-CCITT
+    let crc = 0xFFFF;
+    for (const c of raw) {
+      crc ^= c.charCodeAt(0) << 8;
+      for (let i = 0; i < 8; i++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
+      crc &= 0xFFFF;
+    }
+    return raw + crc.toString(16).toUpperCase().padStart(4, '0');
+  };
+
+  const gerarQR = async (chave, valor, nome) => {
+    try {
+      const payload = pixPayload(chave, valor, nome);
+      const url = await QRCode.toDataURL(payload, { width: 260, margin: 2, color: { dark: '#000000', light: '#ffffff' } });
+      setQrDataUrl(url);
+    } catch (e) { setQrDataUrl(''); }
+  };
 
   const copiarPix = (chave) => {
     navigator.clipboard.writeText(chave).catch(() => {});
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2000);
   };
+
+  useEffect(() => {
+    if (payTarget?.m?.pix && payTarget?.liquido) {
+      gerarQR(payTarget.m.pix, payTarget.liquido, payTarget.m.nome);
+    } else {
+      setQrDataUrl('');
+    }
+  }, [payTarget]);
 
   const confirmarPagamento = async () => {
     if (!payTarget || confirmando) return;
@@ -262,23 +311,36 @@ export default function Financeiro() {
 
                 <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
 
-                  {/* PIX em destaque */}
+                  {/* QR Code PIX */}
                   <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-5 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <QrCode className="w-5 h-5 text-emerald-600" />
-                      <span className="text-sm font-semibold text-emerald-700 uppercase tracking-wide">Chave PIX</span>
-                      <span className="ml-auto text-xs text-emerald-600 bg-emerald-100 rounded-full px-2 py-0.5">{tipo}</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-emerald-700 uppercase tracking-wide">PIX</span>
+                      <span className="text-xs text-emerald-600 bg-emerald-100 rounded-full px-2 py-0.5">{tipo}</span>
                     </div>
                     {chave ? (
                       <>
-                        <p className="text-lg font-mono font-bold text-emerald-900 break-all">{chave}</p>
-                        <button
-                          onClick={() => copiarPix(chave)}
-                          className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-3 transition-colors"
-                        >
-                          {copiado ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                          {copiado ? 'Copiado!' : 'Copiar chave PIX'}
-                        </button>
+                        {/* QR Code */}
+                        {qrDataUrl ? (
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="bg-white rounded-xl p-3 shadow-sm border border-emerald-100">
+                              <img src={qrDataUrl} alt="QR Code PIX" className="w-52 h-52" />
+                            </div>
+                            <p className="text-xs text-emerald-700 font-medium">Valor já incluído: <strong>{formatBRL(payTarget.liquido)}</strong></p>
+                          </div>
+                        ) : (
+                          <div className="w-52 h-52 mx-auto bg-white rounded-xl animate-pulse" />
+                        )}
+                        {/* Chave + copiar */}
+                        <div className="bg-white rounded-xl border border-emerald-100 px-3 py-2 flex items-center gap-2">
+                          <p className="flex-1 text-sm font-mono text-emerald-900 break-all">{chave}</p>
+                          <button
+                            onClick={() => copiarPix(chave)}
+                            className="shrink-0 flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 rounded-lg px-2 py-1.5 transition-colors"
+                          >
+                            {copiado ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                            {copiado ? 'Copiado!' : 'Copiar'}
+                          </button>
+                        </div>
                       </>
                     ) : (
                       <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2">⚠️ PIX não cadastrado — atualize o cadastro deste motoboy.</p>
