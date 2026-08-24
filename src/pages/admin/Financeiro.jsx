@@ -70,14 +70,6 @@ export default function Financeiro() {
     return raw + crc.toString(16).toUpperCase().padStart(4, '0');
   };
 
-  const gerarQR = async (chave, valor, nome) => {
-    try {
-      const payload = pixPayload(chave, valor, nome);
-      const url = await QRCode.toDataURL(payload, { width: 260, margin: 2, color: { dark: '#000000', light: '#ffffff' } });
-      setQrDataUrl(url);
-    } catch (e) { setQrDataUrl(''); }
-  };
-
   const copiarPix = (chave) => {
     navigator.clipboard.writeText(chave).catch(() => {});
     setCopiado(true);
