@@ -9,7 +9,7 @@ import {
 import { formatBRL, getDiaria, cicloSemanal, dentroDoCiclo, labelCiclo, consumoDoCiclo } from '@/lib/donbaron';
 import { DollarSign, Utensils, ChevronLeft, ChevronRight, Copy, Check } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { QRCodeSVG } from 'qrcode.react';
+import QRCode from 'qrcode';
 import { Separator } from '@/components/ui/separator';
 
 export default function Financeiro() {
@@ -22,6 +22,7 @@ export default function Financeiro() {
   const [payTarget, setPayTarget] = useState(null);
   const [copiado, setCopiado] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState('');
 
   // ===== Gerador de Payload PIX (padrão EMV – Banco Central) =====
   // Normaliza a chave PIX conforme o tipo (padrão Banco Central)
@@ -121,6 +122,18 @@ export default function Financeiro() {
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    if (!payTarget) { setQrDataUrl(''); return; }
+    const m = payTarget.m;
+    const chave = m.pix || '';
+    const tipo = m.tipo_chave_pix || 'pix';
+    if (!chave) { setQrDataUrl(''); return; }
+    const payload = pixPayload(chave, payTarget.liquido, m.nome, 'Teresina', tipo);
+    QRCode.toDataURL(payload, { width: 240, margin: 1, color: { dark: '#000000', light: '#ffffff' } })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(''));
+  }, [payTarget]);
 
   const ciclo = useMemo(() => cicloSemanal(weekOffset), [weekOffset]);
 
@@ -321,13 +334,11 @@ export default function Financeiro() {
                         {/* QR Code */}
                         <div className="flex flex-col items-center gap-2">
                           <div className="bg-white rounded-xl p-3 shadow-sm border border-emerald-100">
-                            <QRCodeSVG
-                              value={pixPayload(chave, payTarget.liquido, m.nome, 'Teresina', tipo)}
-                              size={208}
-                              bgColor="#ffffff"
-                              fgColor="#000000"
-                              level="M"
-                            />
+                            {qrDataUrl ? (
+                              <img src={qrDataUrl} alt="QR Code PIX" width={208} height={208} className="block" />
+                            ) : (
+                              <div className="w-[208px] h-[208px] bg-muted animate-pulse rounded" />
+                            )}
                           </div>
                           <p className="text-xs text-emerald-700 font-medium">Valor já incluído: <strong>{formatBRL(payTarget.liquido)}</strong></p>
                         </div>
