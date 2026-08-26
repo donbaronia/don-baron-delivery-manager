@@ -44,7 +44,7 @@ export default function Cadastro() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('todos');
+  const [filter, setFilter] = useState('ativo');
   const [checkinModal, setCheckinModal] = useState(null);
   const [bloqueioModal, setBloqueioModal] = useState(null);
   const [excluirModal, setExcluirModal] = useState(null);
