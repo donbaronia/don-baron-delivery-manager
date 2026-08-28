@@ -11,6 +11,7 @@ import { DollarSign, Utensils, ChevronLeft, ChevronRight, Copy, Check } from 'lu
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import QRCode from 'qrcode';
 import { Separator } from '@/components/ui/separator';
+import DailyView from '@/components/financeiro/DailyView';
 
 export default function Financeiro() {
   const [motoboys, setMotoboys] = useState([]);
@@ -23,6 +24,7 @@ export default function Financeiro() {
   const [copiado, setCopiado] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState('');
+  const [viewMode, setViewMode] = useState('semana'); // 'semana' | 'dia'
 
   // ===== Gerador de Payload PIX (padrão EMV – Banco Central) =====
   // Normaliza a chave PIX conforme o tipo (padrão Banco Central)
@@ -197,32 +199,55 @@ export default function Financeiro() {
           <h1 className="text-2xl font-heading font-bold text-foreground">Painel Financeiro</h1>
           <p className="text-sm text-muted-foreground mt-1">Folha semanal • quarta a terça • pagamento na quarta</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => setWeekOffset((w) => w - 1)}>
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <div className="text-center min-w-[220px]">
-            <p className="text-sm font-semibold">{labelCiclo(ciclo)}</p>
-            <Badge variant="outline" className={weekOffset === -1 ? 'text-accent border-accent/40' : weekOffset === 0 ? 'text-amber-600 border-amber-300' : 'text-muted-foreground'}>
-              {weekOffset === -1 ? 'Semana fechada — pagar agora' : weekOffset === 0 ? 'Semana em andamento' : 'Semana anterior'}
-            </Badge>
+        <div className="flex items-center gap-3">
+          {/* Toggle de visão */}
+          <div className="flex items-center bg-muted rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('semana')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${viewMode === 'semana' ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}
+            >
+              Semana
+            </button>
+            <button
+              onClick={() => setViewMode('dia')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${viewMode === 'dia' ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}
+            >
+              Por Dia
+            </button>
           </div>
-          <Button variant="outline" size="icon" onClick={() => setWeekOffset((w) => Math.min(0, w + 1))} disabled={weekOffset >= 0}>
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-          {weekOffset !== -1 && (
-            <Button variant="secondary" size="sm" onClick={() => setWeekOffset(-1)}>
-              Semana a pagar
-            </Button>
-          )}
-          {weekOffset === -1 && (
-            <Button variant="secondary" size="sm" onClick={() => setWeekOffset(0)}>
-              Semana atual
-            </Button>
+          {viewMode === 'semana' && (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" onClick={() => setWeekOffset((w) => w - 1)}>
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <div className="text-center min-w-[220px]">
+                <p className="text-sm font-semibold">{labelCiclo(ciclo)}</p>
+                <Badge variant="outline" className={weekOffset === -1 ? 'text-accent border-accent/40' : weekOffset === 0 ? 'text-amber-600 border-amber-300' : 'text-muted-foreground'}>
+                  {weekOffset === -1 ? 'Semana fechada — pagar agora' : weekOffset === 0 ? 'Semana em andamento' : 'Semana anterior'}
+                </Badge>
+              </div>
+              <Button variant="outline" size="icon" onClick={() => setWeekOffset((w) => Math.min(0, w + 1))} disabled={weekOffset >= 0}>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+              {weekOffset !== -1 && (
+                <Button variant="secondary" size="sm" onClick={() => setWeekOffset(-1)}>
+                  Semana a pagar
+                </Button>
+              )}
+              {weekOffset === -1 && (
+                <Button variant="secondary" size="sm" onClick={() => setWeekOffset(0)}>
+                  Semana atual
+                </Button>
+              )}
+            </div>
           )}
         </div>
       </div>
 
+      {viewMode === 'dia' ? (
+        <DailyView motoboys={motoboys} checkIns={checkIns} consumos={consumos} config={config} />
+      ) : (
+      <>
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="p-4 border-border/60 shadow-sm">
           <p className="text-xs text-muted-foreground uppercase tracking-wide">Folha bruta</p>
@@ -307,6 +332,8 @@ export default function Financeiro() {
           </TableBody>
         </Table>
       </Card>
+      </>
+      )}
 
       <Sheet open={!!payTarget} onOpenChange={(o) => { if (!o) { setPayTarget(null); setCopiado(false); } }}>
         <SheetContent side="right" className="w-full sm:max-w-md flex flex-col gap-0 p-0">
