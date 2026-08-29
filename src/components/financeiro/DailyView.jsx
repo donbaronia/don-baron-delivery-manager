@@ -3,12 +3,11 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calendar } from '@/components/ui/calendar';
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '@/components/ui/table';
-import { formatBRL, getDiaria, formatDate } from '@/lib/donbaron';
-import { Utensils, Search, CalendarDays, CheckCircle2, QrCode } from 'lucide-react';
+import { formatBRL, getDiaria, formatDate, localISO, todayISO } from '@/lib/donbaron';
+import { Utensils, Search, CalendarDays, QrCode, ChevronLeft, ChevronRight } from 'lucide-react';
 import QrCodeSheet from '@/components/financeiro/QrCodeSheet';
 
 export default function DailyView({ motoboys, checkIns, consumos, config }) {
@@ -16,12 +15,7 @@ export default function DailyView({ motoboys, checkIns, consumos, config }) {
   const [search, setSearch] = useState('');
   const [qrTarget, setQrTarget] = useState(null);
 
-  const dateISO = useMemo(() => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  }, [date]);
+  const dateISO = useMemo(() => (date ? localISO(date) : todayISO()), [date]);
 
   // Check-ins do dia selecionado
   const dayCheckIns = useMemo(
@@ -61,11 +55,11 @@ export default function DailyView({ motoboys, checkIns, consumos, config }) {
       .sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' }))
       .map((m) => {
         const checkIn = checkInMap[m.id];
-        const consumos = consumoDoDia[m.id] || [];
-        const consumoTotal = consumos.reduce((s, c) => s + (c.valor_total || 0), 0);
+        const consumosDia = consumoDoDia[m.id] || [];
+        const consumoTotal = consumosDia.reduce((s, c) => s + (c.valor_total || 0), 0);
         const diaria = getDiaria(m, config);
         const liquido = diaria - consumoTotal;
-        return { m, checkIn, consumos, consumoTotal, diaria, liquido };
+        return { m, checkIn, consumos: consumosDia, consumoTotal, diaria, liquido };
       });
   }, [motoboys, search, checkInMap, consumoDoDia, config]);
 
@@ -75,21 +69,41 @@ export default function DailyView({ motoboys, checkIns, consumos, config }) {
     liquido: acc.liquido + r.liquido,
   }), { diarias: 0, consumo: 0, liquido: 0 });
 
+  const changeDay = (delta) => {
+    const d = new Date(date);
+    d.setDate(d.getDate() + delta);
+    setDate(d);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Calendário + busca */}
+      {/* Seletor de data + busca */}
       <div className="flex flex-col lg:flex-row gap-6">
-        <Card className="p-4 border-border/60 shadow-sm w-fit">
+        <Card className="p-4 border-border/60 shadow-sm">
           <div className="flex items-center gap-2 mb-3">
             <CalendarDays className="w-4 h-4 text-accent" />
             <p className="text-sm font-semibold">Selecionar data</p>
           </div>
-          <Calendar
-            mode="single"
-            selected={date}
-            onSelect={setDate}
-            className="rounded-lg border border-border/40"
-          />
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => changeDay(-1)}>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <Input
+              type="date"
+              value={dateISO}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v) setDate(new Date(v + 'T00:00:00'));
+              }}
+              className="text-center font-semibold w-[160px]"
+            />
+            <Button variant="outline" size="icon" onClick={() => changeDay(1)}>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setDate(new Date())}>
+              Hoje
+            </Button>
+          </div>
         </Card>
 
         <div className="flex-1 space-y-4">
