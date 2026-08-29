@@ -7,11 +7,14 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '@/components/ui/table';
 import { formatBRL, getDiaria, cicloSemanal, dentroDoCiclo, labelCiclo, consumoDoCiclo } from '@/lib/donbaron';
-import { DollarSign, Utensils, ChevronLeft, ChevronRight, Copy, Check } from 'lucide-react';
+import { DollarSign, Utensils, ChevronLeft, ChevronRight, Copy, Check, Search, QrCode } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Input } from '@/components/ui/input';
 import QRCode from 'qrcode';
 import { Separator } from '@/components/ui/separator';
+import { pixPayload } from '@/lib/pix';
 import DailyView from '@/components/financeiro/DailyView';
+import QrCodeSheet from '@/components/financeiro/QrCodeSheet';
 
 export default function Financeiro() {
   const [motoboys, setMotoboys] = useState([]);
@@ -25,53 +28,8 @@ export default function Financeiro() {
   const [confirmando, setConfirmando] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [viewMode, setViewMode] = useState('semana'); // 'semana' | 'dia'
-
-  // ===== Gerador de Payload PIX (padrão EMV – Banco Central) =====
-  // Normaliza a chave PIX conforme o tipo (padrão Banco Central)
-  const normalizarChave = (chave, tipo) => {
-    const raw = String(chave || '').trim();
-    if (tipo === 'cpf' || tipo === 'cnpj') return raw.replace(/\D/g, '');
-    if (tipo === 'telefone' || tipo === 'phone') {
-      const nums = raw.replace(/\D/g, '');
-      // Precisa ter +55 na frente
-      if (raw.startsWith('+')) return raw.replace(/[^+\d]/g, '');
-      return '+55' + nums;
-    }
-    if (tipo === 'email') return raw.toLowerCase();
-    // chave aleatória ou outros: retorna como está
-    return raw;
-  };
-
-  const pixPayload = (chave, valor, nome = 'Don Baron', cidade = 'Teresina', tipo = 'email') => {
-    const fmt = (id, val) => {
-      const v = String(val);
-      return `${id}${String(v.length).padStart(2, '0')}${v}`;
-    };
-    const chaveFmt = normalizarChave(chave, tipo);
-    const merchantAccountInfo = fmt('00', 'BR.GOV.BCB.PIX') + fmt('01', chaveFmt);
-    const valorStr = valor.toFixed(2);
-    const nomeStr = nome.substring(0, 25).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9 ]/g, '').toUpperCase();
-    const cidadeStr = cidade.substring(0, 15).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9 ]/g, '').toUpperCase();
-    const raw =
-      fmt('00', '01') +                         // Payload version
-      fmt('26', merchantAccountInfo) +            // Merchant account info
-      fmt('52', '0000') +                        // MCC
-      fmt('53', '986') +                         // BRL
-      fmt('54', valorStr) +                      // Valor
-      fmt('58', 'BR') +                          // País
-      fmt('59', nomeStr) +                       // Nome
-      fmt('60', cidadeStr) +                     // Cidade
-      fmt('62', fmt('05', '***')) +              // Additional data
-      '6304';                                    // CRC placeholder
-    // CRC16-CCITT
-    let crc = 0xFFFF;
-    for (const c of raw) {
-      crc ^= c.charCodeAt(0) << 8;
-      for (let i = 0; i < 8; i++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
-      crc &= 0xFFFF;
-    }
-    return raw + crc.toString(16).toUpperCase().padStart(4, '0');
-  };
+  const [search, setSearch] = useState('');
+  const [qrTarget, setQrTarget] = useState(null);
 
   const copiarPix = (chave) => {
     navigator.clipboard.writeText(chave).catch(() => {});
@@ -140,7 +98,13 @@ export default function Financeiro() {
   const ciclo = useMemo(() => cicloSemanal(weekOffset), [weekOffset]);
 
   const rows = useMemo(() => {
-    const ordenados = [...motoboys].sort((a, b) =>
+    const filtrados = motoboys.filter((m) =>
+      !search ||
+      m.nome?.toLowerCase().includes(search.toLowerCase()) ||
+      m.telefone?.includes(search) ||
+      m.pix?.toLowerCase().includes(search.toLowerCase())
+    );
+    const ordenados = [...filtrados].sort((a, b) =>
       (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' }));
     return ordenados.map((m) => {
       const weekCheckIns = checkIns.filter(
@@ -174,7 +138,7 @@ export default function Financeiro() {
 
       return { m, dias, diarias, bonus, descontos, consumoTotal, consumoItens, consumoPendenteIds, bruto, liquido, totalPago, status };
     });
-  }, [motoboys, checkIns, payments, config, consumos, ciclo]);
+  }, [motoboys, search, checkIns, payments, config, consumos, ciclo]);
 
   const totals = rows.reduce((acc, r) => ({
     diarias: acc.diarias + r.diarias,
@@ -248,6 +212,11 @@ export default function Financeiro() {
         <DailyView motoboys={motoboys} checkIns={checkIns} consumos={consumos} config={config} />
       ) : (
       <>
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome, telefone ou PIX..." className="pl-9" />
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="p-4 border-border/60 shadow-sm">
           <p className="text-xs text-muted-foreground uppercase tracking-wide">Folha bruta</p>
@@ -284,12 +253,13 @@ export default function Financeiro() {
               <TableHead className="text-right">Bruto</TableHead>
               <TableHead className="text-right">Líquido</TableHead>
               <TableHead className="text-center">Status</TableHead>
+              <TableHead className="text-center">QR PIX</TableHead>
               <TableHead className="text-center">Ação</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
-              <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Nenhum motoboy ativo.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Nenhum motoboy encontrado.</TableCell></TableRow>
             ) : (
               rows.map((r) => (
                 <TableRow key={r.m.id}>
@@ -312,6 +282,17 @@ export default function Financeiro() {
                     <Badge variant={r.status === 'pago' ? 'default' : 'secondary'} className={r.status === 'pago' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' : 'bg-amber-100 text-amber-700 hover:bg-amber-100'}>
                       {r.status === 'pago' ? 'Pago' : 'Pendente'}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      title="Gerar QR Code PIX sem valor"
+                      onClick={() => setQrTarget({ m: r.m, valor: null, subtitle: `${labelCiclo(ciclo)} • Líquido: ${formatBRL(r.liquido)}` })}
+                    >
+                      <QrCode className="w-3.5 h-3.5" />
+                    </Button>
                   </TableCell>
                   <TableCell className="text-center">
                     <Button
@@ -450,6 +431,8 @@ export default function Financeiro() {
           })()}
         </SheetContent>
       </Sheet>
+
+      <QrCodeSheet target={qrTarget} onClose={() => setQrTarget(null)} />
     </div>
   );
 }
